@@ -1,0 +1,41 @@
+# Data
+data/raw/
+data/watermarked/
+data/removed/
+data/edited/
+data/splits/
+
+# Checkpoints & results
+checkpoints/
+results/logs/
+results/figures/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+*.pt

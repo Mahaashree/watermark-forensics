@@ -1,0 +1,20 @@
+{
+  "split": "test",
+  "accuracy": 1.0,
+  "auroc": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "confusion_matrix": [
+    [
+      15,
+      0
+    ],
+    [
+      0,
+      15
+    ]
+  ],
+  "loss": 4.96704649322055e-07,
+  "n_samples": 30
+}
