@@ -10,10 +10,15 @@ import shutil
 from pathlib import Path
 from tqdm import tqdm
 
-MIRRORS = [
-    "https://huggingface.co/datasets/eugenesiow/Div2k/resolve/main/DIV2K_valid_HR.zip",
-    "https://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_valid_HR.zip",
-]
+MIRRORS = {
+    "valid": [
+        "https://huggingface.co/datasets/eugenesiow/Div2k/resolve/main/DIV2K_valid_HR.zip",
+        "https://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_valid_HR.zip",
+    ],
+    "train": [
+        "https://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_train_HR.zip",
+    ],
+}
 
 
 def download_file(url: str, dest: Path) -> bool:
@@ -35,12 +40,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=Path("data/raw"))
     parser.add_argument("--max-images", type=int, default=800)
+    parser.add_argument("--split", type=str, default="valid", choices=["valid", "train"], help="DIV2K split to download")
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
-    zip_path = args.output / "DIV2K_valid_HR.zip"
+    zip_name = f"DIV2K_{args.split}_HR.zip"
+    zip_path = args.output / zip_name
 
-    for url in MIRRORS:
+    for url in MIRRORS[args.split]:
         print(f"Trying {url}...")
         if download_file(url, zip_path):
             break
@@ -51,12 +58,13 @@ def main():
     with zipfile.ZipFile(zip_path, "r") as zf:
         zf.extractall(args.output)
 
-    extracted = list((args.output / "DIV2K_valid_HR").glob("*.png"))
+    extracted = list((args.output / f"DIV2K_{args.split}_HR").glob("*.png"))
+    existing = len(list(args.output.glob("*.png")))
     for i, src in enumerate(extracted[:args.max_images]):
-        dst = args.output / f"{i:04d}.png"
+        dst = args.output / f"{existing + i:04d}.png"
         shutil.move(str(src), str(dst))
 
-    shutil.rmtree(args.output / "DIV2K_valid_HR", ignore_errors=True)
+    shutil.rmtree(args.output / f"DIV2K_{args.split}_HR", ignore_errors=True)
     zip_path.unlink()
 
     print(f"Done: {len(list(args.output.glob('*.png')))} images in {args.output}")

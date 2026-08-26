@@ -1,11 +1,10 @@
 data:
   raw_dir: "data/raw"
-  watermarked_dir: "data/watermarked_jpeg80"
-  removed_dir: "data/removed_jpeg80"
+  watermarked_dir: "data/watermarked_v2"
+  removed_dir: "data/removed_v2"
   edited_dir: "data/edited"
 
-  # Existing split files
-  splits_dir: "data/splits"
+  splits_dir: "data/splits_v2"
 
   img_size: 224
   train_split: 0.70
@@ -16,19 +15,11 @@ data:
 
 watermark:
   method: "dwt_dct_svd"
-  alpha: 0.1
+  alpha: 0.02
   block_size: 8
   dwt_level: 2
   watermark_seed: 42
   verify_threshold: 0.5
-
-attack:
-  method: "distortion"
-  jpeg_quality: 2
-  gaussian_std: 45.0
-  blur_kernel: 13
-  resize_factor: 0.1
-  num_passes: 6
 
 model:
   name: "convnext_tiny"
@@ -46,8 +37,8 @@ train:
   mixed_precision: true
   grad_clip: 1.0
   early_stopping_patience: 5
-  save_dir: "checkpoints"
-  log_dir: "results/logs"
+  save_dir: "checkpoints_v2"
+  log_dir: "results/logs_v2"
 
 eval:
   metrics:
@@ -56,4 +47,4 @@ eval:
     - "precision"
     - "recall"
     - "f1"
-  save_dir: "results"
+  save_dir: "results/v2"

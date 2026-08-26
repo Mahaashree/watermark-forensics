@@ -1,0 +1,36 @@
+ AUROC already at ceiling (1.0) — can't numerically improve, but here's how to make it robust/trustworthy, not just lucky on 30 samples:
+
+  Data
+  - More raw images (>100)
+  - Harder/varied attack strengths (not just one fixed distortion)
+  - Multiple attack types (JPEG, blur, resize, crop, diffusion regen)
+
+  - Balance attack difficulty across train/val/test
+
+  Splits
+  - Larger val/test sets (30 too small to trust AUROC=1.0)
+  - Stratify by attack strength, not just class
+  - No source-image leakage across splits
+
+  Training
+  - Cross-validation instead of single split
+  - Train longer with early stopping on val AUROC
+  - Try different seeds, average results
+
+  Model
+  - Try alternate backbones (resnet, efficientnet) for comparison
+  - Ensemble multiple models
+
+  Evaluation
+  - Test on unseen attack types (generalization, not just held-out images)
+  - Report AUROC per attack type/strength separately
+  - Bootstrap confidence intervals on AUROC (30 samples → wide CI)
+
+  Priority: larger/harder test set first — current 1.0 is likely ceiling effect, not proof of real robustness.
+
+
+  
+
+python -m src.train --config configs/default.yaml
+python -m src.evaluate --config configs/default.yaml --checkpoint checkpoints/best_model.pt --split test
+

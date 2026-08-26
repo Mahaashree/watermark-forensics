@@ -37,10 +37,18 @@ class WatermarkForensicsDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        img = cv2.imread(row["path"])
+
+        img_path = row["path"]
+        img = cv2.imread(img_path)
+
+        if img is None:
+            raise FileNotFoundError(
+                f"Could not read image: {img_path}"
+            )
+
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = self.transform(image=img)["image"]
-        label = torch.tensor(row["label"], dtype=torch.long)
+        label = torch.tensor(int(row["label"]), dtype=torch.long)
         return img, label
 
 
@@ -53,9 +61,21 @@ def create_dataloaders(
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     torch.manual_seed(seed)
 
-    train_ds = WatermarkForensicsDataset(splits_dir / "train.csv", img_size, train=True)
-    val_ds = WatermarkForensicsDataset(splits_dir / "val.csv", img_size, train=False)
-    test_ds = WatermarkForensicsDataset(splits_dir / "test.csv", img_size, train=False)
+    train_csv = splits_dir / "train.csv"
+    val_csv = splits_dir / "val.csv"
+    test_csv = splits_dir / "test.csv"
+
+    for csv_file in [train_csv, val_csv, test_csv]:
+        if not csv_file.exists():
+            raise FileNotFoundError(
+                f"Missing split file: {csv_file}\n"
+                f"Expected train.csv, val.csv and test.csv "
+                f"inside {splits_dir}"
+            )
+
+    train_ds = WatermarkForensicsDataset(train_csv, img_size, train=True)
+    val_ds = WatermarkForensicsDataset(val_csv, img_size, train=False)
+    test_ds = WatermarkForensicsDataset(test_csv, img_size, train=False)
 
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
