@@ -1,0 +1,249 @@
+{
+  "phase": "Phase 0",
+  "final_pipeline": {
+    "name": "v5-minaug",
+    "description": "Final adopted Phase 0 configuration: alpha=0.15 DWT/DCT/SVD watermark, coefficient-domain + generic distortion attack (verification-based labeling), minimal augmentation (Task 4 policy)",
+    "config_file": "configs/v5_minaug.yaml",
+    "config": {
+      "data": {
+        "raw_dir": "data/raw",
+        "watermarked_dir": "data/watermarked_v5",
+        "removed_dir": "data/removed_v5",
+        "edited_dir": "data/edited",
+        "splits_dir": "data/splits_v5",
+        "img_size": 224,
+        "train_split": 0.7,
+        "val_split": 0.15,
+        "test_split": 0.15,
+        "seed": 42,
+        "num_workers": 0
+      },
+      "watermark": {
+        "method": "dwt_dct_svd",
+        "alpha": 0.15,
+        "block_size": 8,
+        "dwt_level": 2,
+        "watermark_seed": 42,
+        "verify_threshold": 0.5
+      },
+      "attack": {
+        "method": "coefficient_attack + distortion",
+        "coeff_strength_max": 0.8
+      },
+      "model": {
+        "name": "convnext_tiny",
+        "pretrained": true,
+        "num_classes": 2,
+        "dropout": 0.1
+      },
+      "train": {
+        "batch_size": 16,
+        "batch_size_fallback": 8,
+        "lr": 0.0001,
+        "weight_decay": 0.0001,
+        "epochs": 12,
+        "device": "auto",
+        "mixed_precision": true,
+        "grad_clip": 1.0,
+        "early_stopping_patience": 5,
+        "save_dir": "checkpoints_v5_minaug",
+        "log_dir": "results/logs_v5_minaug"
+      },
+      "eval": {
+        "metrics": [
+          "accuracy",
+          "auroc",
+          "precision",
+          "recall",
+          "f1"
+        ],
+        "save_dir": "results/v5_minaug"
+      }
+    }
+  },
+  "dataset": {
+    "raw_images": 900,
+    "watermark_present": 308,
+    "watermark_removed": 592,
+    "train": {
+      "total": 630,
+      "present": 216,
+      "removed": 414
+    },
+    "val": {
+      "total": 135,
+      "present": 46,
+      "removed": 89
+    },
+    "test": {
+      "total": 135,
+      "present": 46,
+      "removed": 89
+    }
+  },
+  "training": {
+    "device": "cuda",
+    "model": "convnext_tiny (timm, ImageNet-pretrained)",
+    "params": 27821666,
+    "early_stopping_patience": 5,
+    "epochs_run": 8,
+    "best_val_acc": 0.8222,
+    "epoch_history": [
+      {
+        "epoch": 1,
+        "train_loss": 0.905,
+        "train_acc": 0.6222,
+        "val_loss": 0.9661,
+        "val_acc": 0.6593
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.5748,
+        "train_acc": 0.7016,
+        "val_loss": 0.5288,
+        "val_acc": 0.6889
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.4382,
+        "train_acc": 0.7968,
+        "val_loss": 0.3882,
+        "val_acc": 0.8222
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.6109,
+        "train_acc": 0.8032,
+        "val_loss": 0.4685,
+        "val_acc": 0.8
+      },
+      {
+        "epoch": 5,
+        "train_loss": 0.2267,
+        "train_acc": 0.9127,
+        "val_loss": 0.61,
+        "val_acc": 0.8074
+      },
+      {
+        "epoch": 6,
+        "train_loss": 0.2579,
+        "train_acc": 0.9381,
+        "val_loss": 0.9691,
+        "val_acc": 0.8
+      },
+      {
+        "epoch": 7,
+        "train_loss": 0.1656,
+        "train_acc": 0.9619,
+        "val_loss": 0.9746,
+        "val_acc": 0.8222
+      },
+      {
+        "epoch": 8,
+        "train_loss": 0.0738,
+        "train_acc": 0.9825,
+        "val_loss": 0.984,
+        "val_acc": 0.8222
+      }
+    ]
+  },
+  "test_metrics": {
+    "split": "test",
+    "accuracy": 0.8,
+    "auroc": 0.8395212506106497,
+    "precision": 0.8229166666666666,
+    "recall": 0.8876404494382022,
+    "f1": 0.8540540540540541,
+    "tpr_at_1pct_fpr": 0.10112359550561797,
+    "tpr_at_0.1pct_fpr": 0.10112359550561797,
+    "confusion_matrix": [
+      [
+        29,
+        17
+      ],
+      [
+        10,
+        79
+      ]
+    ],
+    "loss": 0.48705582971926087,
+    "n_samples": 135
+  },
+  "task1_degradation_control": {
+    "description": "Removed-watermark test images vs. never-watermarked images given exact same (RNG-replay matched) attack severity. Isolates removal-specific residue from generic-degradation confound.",
+    "task": "task1_nonwatermarked_degradation_control",
+    "config": "configs\\v5_minaug.yaml",
+    "checkpoint": "checkpoints_v5_minaug\\best_model.pt",
+    "csv": "data\\splits_v5\\test_task1_control.csv",
+    "auroc": 0.6717586163363211,
+    "n_samples": 178,
+    "n_removed": 89,
+    "n_control": 89,
+    "removed_mean_prob": 0.8483992218971252,
+    "removed_std_prob": 0.21656601130962372,
+    "control_mean_prob": 0.7372833490371704,
+    "control_std_prob": 0.28336793184280396
+  },
+  "task_verdicts": {
+    "task1_nonwatermarked_control": {
+      "verdict": "confirmed weak pass",
+      "summary": "Real, reproducible, above-chance removal-specific residue signal exists but plateaus around AUROC 0.64-0.67 regardless of alpha (tested 0.02/0.08/0.15) -- well short of headline AUROC."
+    },
+    "task2_bmp_ablation": {
+      "verdict": "pass (proven structurally)",
+      "summary": "PNG and BMP decode to bit-identical pixel arrays in this pipeline (verified 20/20) -- jpeg_reencode() already round-trips JPEG in memory before any file write, so no format-specific channel can exist."
+    },
+    "task3_tpr_at_low_fpr": {
+      "verdict": "done",
+      "summary": "Added tpr_at_1pct_fpr and tpr_at_0.1pct_fpr to src/evaluate.py. At real low-FPR operating points both models look much weaker than headline AUROC suggests."
+    },
+    "task4_augmentation_policy": {
+      "verdict": "done, adopted",
+      "summary": "Dropped RandomResizedCrop + ColorJitter (both threaten the DCT/SVD-domain residue signal); kept Resize + HorizontalFlip. Task 1 control AUROC improved after the change."
+    },
+    "task5_alpha_documentation": {
+      "verdict": "done",
+      "summary": "configs/default.yaml flagged as historical/superseded; README Alpha History table documents the full v2-v5 alpha progression and rationale."
+    }
+  },
+  "historical_progression": {
+    "description": "Prior pipeline versions explored during Phase 0 (data/checkpoints since removed as intermediate artifacts; numbers preserved from original runs, documented in results/task1_writeup.md)",
+    "versions": [
+      {
+        "version": "v2",
+        "alpha": 0.02,
+        "attack": "generic distortion only",
+        "headline_test_auroc": 0.8876,
+        "task1_control_auroc": 0.509
+      },
+      {
+        "version": "v3",
+        "alpha": 0.02,
+        "attack": "coefficient-domain + generic distortion",
+        "headline_test_auroc": 0.8225,
+        "task1_control_auroc": 0.5087
+      },
+      {
+        "version": "v4",
+        "alpha": 0.08,
+        "attack": "coefficient-domain + generic distortion",
+        "headline_test_auroc": 0.7508,
+        "task1_control_auroc": 0.641
+      },
+      {
+        "version": "v5",
+        "alpha": 0.15,
+        "attack": "coefficient-domain + generic distortion",
+        "headline_test_auroc": 0.8192,
+        "task1_control_auroc": 0.6439
+      },
+      {
+        "version": "v5-minaug (this run)",
+        "alpha": 0.15,
+        "attack": "coefficient-domain + generic distortion",
+        "headline_test_auroc": 0.8395212506106497,
+        "task1_control_auroc": 0.6717586163363211
+      }
+    ]
+  }
+}

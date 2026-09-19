@@ -1,0 +1,14 @@
+{
+  "task": "task1_nonwatermarked_degradation_control",
+  "config": "configs\\v5_minaug.yaml",
+  "checkpoint": "checkpoints_v5_minaug\\best_model.pt",
+  "csv": "data\\splits_v5\\test_task1_control.csv",
+  "auroc": 0.6717586163363211,
+  "n_samples": 178,
+  "n_removed": 89,
+  "n_control": 89,
+  "removed_mean_prob": 0.8483992218971252,
+  "removed_std_prob": 0.21656601130962372,
+  "control_mean_prob": 0.7372833490371704,
+  "control_std_prob": 0.28336793184280396
+}

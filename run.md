@@ -132,6 +132,25 @@ python -m src.evaluate --config configs/v2.yaml --checkpoint checkpoints_v2/best
 Last run: test accuracy 0.800, AUROC 0.888 (`results/v2/test_metrics.json`) — real signal, not the
 old 100%/1.0 ceiling.
 
+## Quickest showcase (no training — reuses existing checkpoint)
+
+`checkpoints_v2/best_model.pt` and `data/splits_v2/` are already on disk, so evaluation alone
+reproduces the headline result in seconds:
+
+```bash
+cd "C:/final year project/watermark-forensics"
+source .venv/Scripts/activate
+python -m src.evaluate --config configs/v2.yaml --checkpoint checkpoints_v2/best_model.pt --split test
+```
+
+Expect ~80.0% accuracy, 0.888 AUROC (matches `results/v2/test_metrics.json`).
+
+Even faster — print the already-saved metrics with zero compute:
+
+```bash
+cat "C:/final year project/watermark-forensics/results/test_metrics.json"
+```
+
 ## Existing configs
 
 | Config | Attack strength | Splits used | Status |
@@ -166,3 +185,30 @@ print(x.shape, y.shape, y.tolist())
 print(len(train_dl.dataset), len(val_dl.dataset), len(test_dl.dataset))
 "
 ```
+
+
+ 1. Live metrics (real inference, ~1-2 min):
+  cd "C:/final year project/watermark-forensics"
+  source .venv/Scripts/activate
+  python -m src.evaluate --config configs/v2.yaml --checkpoint checkpoints_v2/best_model.pt --split test
+
+  2. Regenerate + open the graphs (instant, read-only):
+  python -m scripts.make_figures
+  This writes 5 PNGs to results/figures/:
+
+  ┌─────────────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │            File             │                                              What it shows                                              │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ metrics_comparison.png      │ Leaky (100%/1.0 fake) vs. honest (80%/0.888 real) — your best "here's the bug we found and fixed" slide │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ confusion_matrices.png      │ Side-by-side confusion matrices, same leaky-vs-honest story                                             │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ training_curves_v2.png      │ Loss/accuracy curves for the honest run — shows real learning, not memorization                         │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ training_curves_default.png │ Same for the leaky run — for contrast                                                                   │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ alpha_sweep.png             │ How you tuned watermark strength to get a balanced dataset — nice "rigor" slide                         │
+  └─────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  The leaky-vs-honest comparison (metrics + confusion matrix) is your strongest narrative beat — it shows you caught label leakage, diagnosed the root
+  cause, and fixed it, which is more impressive to a committee than just "80% accuracy."

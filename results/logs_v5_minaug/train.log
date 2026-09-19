@@ -1,0 +1,16 @@
+2026-09-13 14:09:08,866 - INFO - Device: cuda
+2026-09-13 14:09:08,866 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v5', 'removed_dir': 'data/removed_v5', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_v5', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.15, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'attack': {'method': 'coefficient_attack + distortion', 'coeff_strength_max': 0.8}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 2, 'dropout': 0.1}, 'train': {'batch_size': 16, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'save_dir': 'checkpoints_v5_minaug', 'log_dir': 'results/logs_v5_minaug'}, 'eval': {'metrics': ['accuracy', 'auroc', 'precision', 'recall', 'f1'], 'save_dir': 'results/v5_minaug'}}
+2026-09-13 14:09:10,580 - INFO - Model: convnext_tiny, params: 27,821,666
+2026-09-13 14:09:41,678 - INFO - Epoch 001 | Train: 0.9050/0.6222 | Val: 0.9661/0.6593
+2026-09-13 14:09:41,791 - INFO -   -> New best: 0.6593
+2026-09-13 14:09:48,007 - INFO - Epoch 002 | Train: 0.5748/0.7016 | Val: 0.5288/0.6889
+2026-09-13 14:09:48,120 - INFO -   -> New best: 0.6889
+2026-09-13 14:09:54,167 - INFO - Epoch 003 | Train: 0.4382/0.7968 | Val: 0.3882/0.8222
+2026-09-13 14:09:54,304 - INFO -   -> New best: 0.8222
+2026-09-13 14:10:00,378 - INFO - Epoch 004 | Train: 0.6109/0.8032 | Val: 0.4685/0.8000
+2026-09-13 14:10:06,525 - INFO - Epoch 005 | Train: 0.2267/0.9127 | Val: 0.6100/0.8074
+2026-09-13 14:10:12,652 - INFO - Epoch 006 | Train: 0.2579/0.9381 | Val: 0.9691/0.8000
+2026-09-13 14:10:18,745 - INFO - Epoch 007 | Train: 0.1656/0.9619 | Val: 0.9746/0.8222
+2026-09-13 14:10:24,769 - INFO - Epoch 008 | Train: 0.0738/0.9825 | Val: 0.9840/0.8222
+2026-09-13 14:10:24,769 - INFO - Early stopping at epoch 8
+2026-09-13 14:10:24,769 - INFO - Training complete. Best val acc: 0.8222

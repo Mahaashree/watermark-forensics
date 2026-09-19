@@ -1,3 +1,9 @@
+# NOTE: this is the original Phase 1 (construction-labeled) config, kept
+# for history. It does NOT produce the currently-reported baseline
+# numbers -- those come from configs/v2.yaml onward (verification-based
+# labeling). alpha here (0.1) differs from what any reported result
+# actually used; see README "Alpha History" before treating this file as
+# a reproduction recipe.
 data:
   raw_dir: "data/raw"
   watermarked_dir: "data/watermarked_jpeg80"

@@ -8,13 +8,24 @@ import yaml
 import json
 import torch
 import torch.nn as nn
-from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_fscore_support, confusion_matrix
+import numpy as np
+from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_fscore_support, confusion_matrix, roc_curve
 from pathlib import Path
 from tqdm import tqdm
 
 from src.utils.seed import set_seed
 from src.data.dataset import create_dataloaders
 from src.models.classifier import WatermarkClassifier, ModelConfig
+
+
+def tpr_at_fpr(labels: np.ndarray, probs: np.ndarray, target_fpr: float) -> float:
+    """TPR at the operating point whose FPR is closest to (and not above) target_fpr."""
+    fpr, tpr, _ = roc_curve(labels, probs)
+    valid = fpr <= target_fpr
+    if valid.any():
+        return float(tpr[valid].max())
+    idx = np.argmin(np.abs(fpr - target_fpr))
+    return float(tpr[idx])
 
 
 def main():
@@ -70,6 +81,8 @@ def main():
     auroc = roc_auc_score(labels, probs)
     prec, rec, f1, _ = precision_recall_fscore_support(labels, preds, average="binary")
     cm = confusion_matrix(labels, preds).tolist()
+    tpr_at_1pct = tpr_at_fpr(labels, probs, 0.01)
+    tpr_at_0_1pct = tpr_at_fpr(labels, probs, 0.001)
 
     results = {
         "split": args.split,
@@ -78,6 +91,8 @@ def main():
         "precision": prec,
         "recall": rec,
         "f1": f1,
+        "tpr_at_1pct_fpr": tpr_at_1pct,
+        "tpr_at_0.1pct_fpr": tpr_at_0_1pct,
         "confusion_matrix": cm,
         "loss": total_loss / total,
         "n_samples": int(total)

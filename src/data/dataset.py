@@ -18,10 +18,15 @@ class WatermarkForensicsDataset(Dataset):
         self.train = train
 
         if train:
+            # RandomResizedCrop and ColorJitter deliberately excluded: crop/resize
+            # resamples pixels off the fixed 8x8 block grid the watermark is
+            # embedded on, and brightness/contrast directly rescale the Y-channel
+            # SVD singular values the watermark perturbs -- both would erase the
+            # exact residue this classifier is trying to detect. See README
+            # "Augmentation Policy".
             self.transform = A.Compose([
-                A.RandomResizedCrop(size=(img_size, img_size), scale=(0.8, 1.0), ratio=(0.9, 1.1)),
+                A.Resize(height=img_size, width=img_size),
                 A.HorizontalFlip(p=0.5),
-                A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.5),
                 A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ToTensorV2(),
             ])
