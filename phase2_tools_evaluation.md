@@ -82,14 +82,42 @@ released code.
   ```
 - **Verdict: available and cleanly documented, but semantically off-target for a "removal attack" integration until its removal-mode behavior is confirmed by reading `optimize_image.py`'s actual objective function.** Not disqualified — genuinely public, permissively licensed, real one-shot CLI — but flagged as needing a closer look before being wired in as a removal attack, rather than treated as equivalent to DiffPure/SANA-VAE/CtrlRegen.
 
+## 5. UnMarker — Kassis & Hengartner, IEEE S&P 2025 (family: distortion-optimization)
+
+Cited as the primary case study in base paper 1 (arXiv:2605.09203, "Removing
+the Watermark Is Not Enough: Forensic Stealth in Generative-AI Watermark
+Removal"), not paper 2. Evaluated on request as a fifth candidate attack for
+`src/attacks/distortion_unmarker.py`.
+
+- **Source:** [github.com/andrekassis/ai-watermark](https://github.com/andrekassis/ai-watermark) (official, author-maintained). Paper: arXiv:2405.08363, DOI 10.1109/SP61157.2025.00005.
+- **License:** Custom "Source Code License for UnMarker" — same shape as DiffPure's: perpetual/worldwide copyright grant, but Section 3.3 restricts the Work (and any derivative works) to **non-commercial use only** ("for research or evaluation purposes only"), with a carve-out that only the licensor/its affiliates may use it commercially. Fine for this research project, but another real licensing constraint.
+- **Install:** `conda create`, `git clone`, then `./install.sh` + `./download_data_and_models.sh` — the latter pulls **~30GB** of pretrained models and datasets (this is not one small checkpoint; it's the full set of detector models for every watermarking scheme the repo benchmarks against: Yu1/Yu2, PTW, HiDDeN, TreeRing, StegaStamp, StableSignature, PRC, Gs, Vine, SynthID).
+- **Hardware:** README states a "high-end NVIDIA GPU with >=32GB memory" and a CUDA 12 driver. `attack.py` does expose a `--device` flag (defaulting to `"cuda"`), but `requirements.txt` pins `torch==2.2.2`/`torchvision==0.17.2` against the **`cu121` (CUDA-only) wheel index** — not a build that installs or runs meaningfully on CPU or MPS.
+- **Dependency footprint:** `requirements.txt` pins ~30 exact package versions, including `numpy==1.24.1` and `tensorflow==2.9.0` as a hard (non-optional) dependency — not an optional backend probed lazily like `transformers` in the SANA-VAE case. This numpy pin is directly incompatible with the numpy 2.2.5 already installed in this environment (the same ABI conflict hit during SANA-VAE integration), and here there's no `USE_TF=0`-style workaround available, because `tensorflow` is a required top-level import for this codebase, not an optional lazy-probed backend. Installing this requirements.txt as specified would require downgrading numpy globally, which risks breaking every other package in this shared environment (as seen with the diffusers/huggingface-hub conflict already hit once this session) — exactly the kind of global-version change the task asked me not to make.
+- **Single-image use: not supported.** `attack.py`'s CLI is `--output_dir`, `--attack {UnMarker,DiffusionAttack,VAEAttack,Crop,JPEG,...}`, `--evaluator {Yu1,Yu2,PTW,HiDDeN,TreeRing,StegaStamp,StableSignature,Prc,Gs,Vine,SynthID}`, `--total_imgs` (default 100) — there is no `--image`/arbitrary-input-path argument. `input_dir` is read from a per-scheme YAML config (`attack_configs/<evaluator>.yaml`), not passed by the caller.
+- **Root architectural blocker, not just a CLI inconvenience:** I traced `attack.py` → `modules/attack/base_attack.py` → `BaseAttack.__init__`, which does `self.evaluator = init_watermarker(evaluator, ...)`. The `UnMark` attack (`modules/attack/unmark/unmark.py`) is built directly on top of this — it optimizes an adversarial perturbation **against a specific, already-instantiated watermark detector object** for one of the ten bundled schemes above. Despite the paper's "Universal Attack" title (referring to generalizing across those ten published schemes), the released code is not a scheme-agnostic/black-box perturbation tool that runs on an arbitrary image with no detector in the loop. Using it against *our* project's custom DWT-DCT-SVD watermark would require writing a new `init_watermarker`-compatible adapter class exposing our embed/verify logic through their interface — genuine integration engineering, not CLI wiring, and arguably drifts toward "reimplementing on top of their internals" rather than "running their released tool," which cuts against the point of this integration.
+- **Verdict: disqualified, same category as DiffPure.** GPU-only (`cu121`-pinned torch wheel, no working CPU path), ~30GB mandatory download, non-commercial-only license, no single-arbitrary-image CLI, and a hard dependency (`tensorflow==2.9.0`) that would force a global numpy downgrade in this shared environment to even install — with the added blocker that the released attack is architecturally coupled to one of ten specific pre-registered watermarking schemes' detector models, not runnable against an arbitrary/unknown watermark without writing a real adapter.
+
+**Outcome:** since the released tool itself is unusable here, the
+distortion-optimization *attack family* was implemented from scratch instead
+of integrated — see `src/attacks/distortion_optimization.py`. This is our
+own code, not a port of UnMarker's, run directly against our own verifier
+(`src.watermark.embed.DWT_DCT_SVD`); UnMarker is cited there only as the
+algorithmic inspiration for targeting spectral-amplitude carriers rather
+than raw pixels. Full mechanism, why a first SPSA-based attempt failed, and
+demo results are in that file's docstring and the commit/PR notes for this
+change.
+
 ## Summary table
 
-| Tool | Source | License | Install | Size | CPU? | Single-image CLI? | Verdict |
+| Tool / family | Source | License | Install | Size | CPU? | Single-image CLI? | Verdict |
 |---|---|---|---|---|---|---|---|
 | DiffPure | NVlabs/DiffPure | NVIDIA non-commercial | Docker, CUDA 11.0 | multi-GB (3 checkpoints) | No (32GB GPU) | No (benchmark-only) | Disqualified |
-| SANA-VAE (DC-AE) | HF `diffusers` / mit-han-lab/efficientvit | Apache-2.0 | `pip install diffusers` | ~0.6–1.2GB | Yes | Yes, documented | **Recommended** |
+| SANA-VAE (DC-AE) | HF `diffusers` / mit-han-lab/efficientvit | Apache-2.0 | `pip install diffusers` | ~0.6–1.2GB | Yes | Yes, documented | **Recommended / integrated** |
 | CtrlRegen | yepengliu/CtrlRegen | Unspecified | git clone + pip + 2 HF adapters + backbone | Undisclosed, likely multi-GB | Unclear, likely GPU-bound | Yes (demo notebook) | Viable 2nd choice, license needs confirming |
 | WMForger | facebookresearch/videoseal/wmforger | MIT | git clone + pip + wget checkpoint | Undisclosed, likely 10s-100s MB | Unconfirmed | Yes, documented | Available but semantically forging-not-removal — needs closer look |
+| UnMarker (released tool) | [andrekassis/ai-watermark](https://github.com/andrekassis/ai-watermark) | Custom, non-commercial | conda + git clone + install.sh + 30GB download | ~30GB (10 bundled scheme detectors) | No (`cu121`-only torch pin, no CPU path) | No (scheme-config only, no `--image` arg) | **Disqualified** |
+| Distortion-optimization (`distortion_optimization.py`) | n/a — **our own implementation, UnMarker-inspired**, not the released tool | Project's own (see repo LICENSE) | Already in this repo, no new deps | n/a | Yes (pure NumPy/OpenCV/PyWavelets, no GPU used) | Yes, `--input`/`--output`/`--original` | **Implemented** — greedy zeroth-order search over DWT-LL block DC coefficients, L-infinity bounded |
 
 ## Recommendation
 
