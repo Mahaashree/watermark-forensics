@@ -1,10 +1,11 @@
 """
 Training loop with OOM fallback, mixed precision (torch.amp), early stopping.
-CLI: python src/train.py --config configs/default.yaml
+CLI: python src/train.py --config configs/default.yaml [--seed N]
 """
 
 import argparse
 import yaml
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
@@ -16,6 +17,48 @@ from src.utils.seed import set_seed
 from src.utils.logging import setup_logging
 from src.data.dataset import create_dataloaders
 from src.models.classifier import WatermarkClassifier, ModelConfig
+
+
+def resolve_device(requested: str) -> torch.device:
+    """"auto" picks cuda > mps > cpu. "cpu" always forces cpu. Anything else
+    (e.g. explicit "cuda"/"mps") is used as-is if available, else falls back
+    to cpu."""
+    if requested == "cpu":
+        return torch.device("cpu")
+    if requested in ("auto", "cuda") and torch.cuda.is_available():
+        return torch.device("cuda")
+    if requested in ("auto", "mps") and getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+def resolve_class_weights(cfg, device: torch.device):
+    """Config-driven, opt-in class weighting for the loss.
+
+    cfg["train"]["class_weights"] may be:
+      - absent / null (default): no weighting, identical behavior to before
+        this option existed.
+      - "auto": inverse-frequency weights computed from the train split's
+        label counts (sklearn "balanced" formula: n_samples / (n_classes *
+        count_c)).
+      - a 2-element list [w0, w1]: used directly, e.g. to upweight class 1
+        ("removed") beyond what frequency-balancing alone would give.
+    """
+    spec = cfg["train"].get("class_weights")
+    if spec is None:
+        return None
+
+    if spec == "auto":
+        train_csv = Path(cfg["data"]["splits_dir"]) / "train.csv"
+        counts = pd.read_csv(train_csv)["label"].value_counts().sort_index()
+        n = counts.sum()
+        weights = [n / (len(counts) * c) for c in counts]
+        return torch.tensor(weights, dtype=torch.float32, device=device)
+
+    if isinstance(spec, (list, tuple)) and len(spec) == 2:
+        return torch.tensor(list(spec), dtype=torch.float32, device=device)
+
+    raise ValueError(f"Unrecognized train.class_weights value: {spec!r}")
 
 
 def train_one_epoch(model, loader, optimizer, criterion, device, scaler, grad_clip, use_amp):
@@ -85,14 +128,23 @@ def evaluate(model, loader, criterion, device, use_amp):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--seed", type=int, default=None,
+                         help="Override cfg['data']['seed']. When set, save_dir "
+                              "and log_dir get a _seed{N} suffix so multi-seed "
+                              "runs don't clobber each other's checkpoints/logs.")
     args = parser.parse_args()
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
+    if args.seed is not None:
+        cfg["data"]["seed"] = args.seed
+        cfg["train"]["save_dir"] = f"{cfg['train']['save_dir']}_seed{args.seed}"
+        cfg["train"]["log_dir"] = f"{cfg['train']['log_dir']}_seed{args.seed}"
+
     set_seed(cfg["data"]["seed"])
 
-    device = torch.device("cuda" if torch.cuda.is_available() and cfg["train"]["device"] != "cpu" else "cpu")
+    device = resolve_device(cfg["train"]["device"])
 
     log_dir = Path(cfg["train"]["log_dir"])
     logger = setup_logging(log_dir, "train")
@@ -112,7 +164,10 @@ def main():
 
     optimizer = AdamW(model.parameters(), lr=cfg["train"]["lr"], weight_decay=cfg["train"]["weight_decay"])
     scheduler = CosineAnnealingLR(optimizer, T_max=cfg["train"]["epochs"])
-    criterion = nn.CrossEntropyLoss()
+    class_weights = resolve_class_weights(cfg, device)
+    if class_weights is not None:
+        logger.info(f"Class weights: {class_weights.tolist()}")
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
     use_amp = cfg["train"]["mixed_precision"] and device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda") if use_amp else None

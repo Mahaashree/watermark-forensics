@@ -15,6 +15,7 @@ from tqdm import tqdm
 from src.utils.seed import set_seed
 from src.data.dataset import create_dataloaders
 from src.models.classifier import WatermarkClassifier, ModelConfig
+from src.train import resolve_device
 
 
 def main():
@@ -22,13 +23,25 @@ def main():
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--split", type=str, default="test", choices=["train", "val", "test"])
+    parser.add_argument("--seed", type=int, default=None,
+                         help="Override cfg['data']['seed']. Only affects "
+                              "dataloader shuffling determinism, not which "
+                              "checkpoint is loaded — pass --checkpoint "
+                              "explicitly for the matching seed run.")
+    parser.add_argument("--tag", type=str, default=None,
+                         help="Suffix for the saved metrics filename, e.g. "
+                              "'seed1', so multi-seed eval runs don't "
+                              "overwrite each other's {split}_metrics.json.")
     args = parser.parse_args()
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
+    if args.seed is not None:
+        cfg["data"]["seed"] = args.seed
+
     set_seed(cfg["data"]["seed"])
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_device(cfg["train"]["device"])
 
     train_dl, val_dl, test_dl = create_dataloaders(
         Path(cfg["data"]["splits_dir"]),
@@ -87,7 +100,8 @@ def main():
 
     save_dir = Path(cfg["eval"]["save_dir"])
     save_dir.mkdir(parents=True, exist_ok=True)
-    with open(save_dir / f"{args.split}_metrics.json", "w") as f:
+    filename = f"{args.split}_metrics_{args.tag}.json" if args.tag else f"{args.split}_metrics.json"
+    with open(save_dir / filename, "w") as f:
         json.dump(results, f, indent=2)
 
 
