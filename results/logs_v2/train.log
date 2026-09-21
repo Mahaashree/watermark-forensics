@@ -12,3 +12,42 @@
 2026-08-26 17:53:49,960 - INFO - Epoch 007 | Train: 0.1687/0.9365 | Val: 0.5596/0.8444
 2026-08-26 17:53:49,961 - INFO - Early stopping at epoch 7
 2026-08-26 17:53:49,961 - INFO - Training complete. Best val acc: 0.8741
+2026-09-20 23:50:48,614 - INFO - Device: mps
+2026-09-20 23:50:48,615 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_v2', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 2, 'dropout': 0.1}, 'train': {'batch_size': 16, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'save_dir': 'checkpoints_v2', 'log_dir': 'results/logs_v2'}, 'eval': {'metrics': ['accuracy', 'auroc', 'precision', 'recall', 'f1'], 'save_dir': 'results/v2'}}
+2026-09-20 23:50:50,193 - INFO - Model: convnext_tiny, params: 27,821,666
+2026-09-21 00:01:17,341 - INFO - Epoch 001 | Train: 0.8326/0.4650 | Val: 0.7699/0.5467
+2026-09-21 00:01:19,668 - INFO -   -> New best: 0.5467
+2026-09-21 00:36:31,226 - INFO - Device: mps
+2026-09-21 00:36:31,226 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_v2', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 2, 'dropout': 0.1}, 'train': {'batch_size': 16, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'save_dir': 'checkpoints_v2', 'log_dir': 'results/logs_v2'}, 'eval': {'metrics': ['accuracy', 'auroc', 'precision', 'recall', 'f1'], 'save_dir': 'results/v2'}}
+2026-09-21 00:36:33,730 - INFO - Model: convnext_tiny, params: 27,821,666
+2026-09-21 01:50:07,658 - INFO - Epoch 001 | Train: 0.8622/0.5067 | Val: 0.6878/0.5533
+2026-09-21 01:50:09,728 - INFO -   -> New best: 0.5533
+2026-09-21 02:02:34,174 - INFO - Epoch 002 | Train: 0.7314/0.5067 | Val: 0.7365/0.5067
+2026-09-21 02:20:13,850 - INFO - Epoch 003 | Train: 0.7328/0.5467 | Val: 0.7538/0.4467
+2026-09-21 02:26:53,379 - INFO - Epoch 004 | Train: 0.7558/0.5100 | Val: 0.6850/0.5467
+2026-09-21 02:36:10,653 - INFO - Epoch 005 | Train: 0.7065/0.4917 | Val: 0.7093/0.5467
+2026-09-21 02:45:06,357 - INFO - Epoch 006 | Train: 0.6807/0.5717 | Val: 1.1401/0.4533
+2026-09-21 02:45:06,359 - INFO - Early stopping at epoch 6
+2026-09-21 02:45:06,359 - INFO - Training complete. Best val acc: 0.5533
+2026-09-21 06:10:38,930 - INFO - Device: mps
+2026-09-21 06:10:38,931 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_v2', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 2, 'dropout': 0.1}, 'train': {'batch_size': 8, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'save_dir': 'checkpoints_v2', 'log_dir': 'results/logs_v2'}, 'eval': {'metrics': ['accuracy', 'auroc', 'precision', 'recall', 'f1'], 'save_dir': 'results/v2'}}
+2026-09-21 06:10:39,936 - INFO - Model: convnext_tiny, params: 27,821,666
+2026-09-21 06:15:17,779 - INFO - Epoch 001 | Train: 0.9021/0.4550 | Val: 0.7128/0.5467
+2026-09-21 06:15:19,451 - INFO -   -> New best: 0.5467
+2026-09-21 06:20:00,396 - INFO - Epoch 002 | Train: 0.7392/0.4550 | Val: 0.6831/0.5467
+2026-09-21 06:24:44,262 - INFO - Epoch 003 | Train: 0.7226/0.5233 | Val: 0.6646/0.5600
+2026-09-21 06:24:45,220 - INFO -   -> New best: 0.5600
+2026-09-21 06:30:03,960 - INFO - Epoch 004 | Train: 0.6891/0.5600 | Val: 0.6872/0.5733
+2026-09-21 06:30:05,141 - INFO -   -> New best: 0.5733
+2026-09-21 06:37:52,301 - INFO - Epoch 005 | Train: 0.7617/0.5283 | Val: 0.7105/0.5467
+2026-09-21 06:45:37,564 - INFO - Epoch 006 | Train: 0.6908/0.5700 | Val: 0.8585/0.4533
+2026-09-21 06:53:22,089 - INFO - Epoch 007 | Train: 0.6884/0.5867 | Val: 0.6649/0.5533
+2026-09-21 07:01:08,748 - INFO - Epoch 008 | Train: 0.6923/0.5517 | Val: 0.7055/0.4733
+2026-09-21 07:08:52,822 - INFO - Epoch 009 | Train: 0.6896/0.5350 | Val: 0.6638/0.5867
+2026-09-21 07:08:54,371 - INFO -   -> New best: 0.5867
+2026-09-21 07:16:41,218 - INFO - Epoch 010 | Train: 0.6742/0.5767 | Val: 0.6675/0.5933
+2026-09-21 07:16:42,769 - INFO -   -> New best: 0.5933
+2026-09-21 07:24:34,860 - INFO - Epoch 011 | Train: 0.6694/0.5833 | Val: 0.6682/0.5933
+2026-09-21 07:32:21,836 - INFO - Epoch 012 | Train: 0.6595/0.5983 | Val: 0.6613/0.6000
+2026-09-21 07:32:23,290 - INFO -   -> New best: 0.6000
+2026-09-21 07:32:23,290 - INFO - Training complete. Best val acc: 0.6000

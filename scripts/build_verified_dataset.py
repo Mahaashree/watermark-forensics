@@ -6,16 +6,18 @@ Every image goes through a randomly-sized attack (some barely attacked, some
 heavily attacked) so both classes share overlapping surface artifacts. The
 label is decided by whether DWT_DCT_SVD.verify() still detects the watermark.
 
-Attack mix: each image gets, at random, one of three attacks:
+Attack mix: each image gets, at random, one of four attacks:
   - CtrlRegen regeneration (--ctrlregen-frac, default 0.0 -- opt-in only,
     see the WARNING below), OR
-  - the distortion-optimization attack (--optimization-frac, default 0.5;
+  - SANA-VAE regeneration (--sana-frac; src.attacks.diffusion_regen, DC-AE
+    encode/decode roundtrip, see phase2_tools_evaluation.md), OR
+  - the distortion-optimization attack (--optimization-frac;
     src.attacks.distortion_optimization, greedy zeroth-order search
     targeting DWT-LL block DC coefficients -- UnMarker-inspired, our own
     implementation, see phase2_tools_evaluation.md section 5), OR
   - the generic distortion pipeline (JPEG/noise/blur/resize), the
     remainder.
-All three paths go through the exact same mandatory JPEG-80 re-encode and
+All four paths go through the exact same mandatory JPEG-80 re-encode and
 verify()-based labeling below -- there is no separate pipeline or separate
 label rule for any attack type.
 
@@ -62,6 +64,10 @@ def main():
     parser.add_argument("--ctrlregen-step", type=float, default=0.5, help="CtrlRegen removal-strength/consistency step, in (0, 1]")
     parser.add_argument("--ctrlregen-device", type=str, default="auto", choices=["auto", "cuda", "cpu"])
     parser.add_argument("--ctrlregen-img-size", type=int, default=512, help="CtrlRegen's own working resolution (SD1.5-scale, trained at 512)")
+    parser.add_argument("--sana-frac", type=float, default=0.0,
+                         help="Fraction of images attacked with SANA-VAE (DC-AE encode/decode roundtrip) regeneration.")
+    parser.add_argument("--sana-model-id", type=str, default="mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers")
+    parser.add_argument("--sana-device", type=str, default="auto", choices=["auto", "cuda", "mps", "cpu"])
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -84,11 +90,23 @@ def main():
         print(f"Loading CtrlRegen pipeline on {ctrlregen_device} (one-time; ~9.8GB download if not cached)...")
         ctrlregen_pipe = load_pipeline(ctrlregen_device)
 
+    sana_model, sana_device = None, None
+    if args.sana_frac > 0:
+        # Imported lazily -- same rationale as CtrlRegen above.
+        from src.attacks.diffusion_regen import resolve_device as sana_resolve_device, load_dc_ae, apply_diffusion_regen
+        sana_device = sana_resolve_device(args.sana_device)
+        print(f"Loading SANA-VAE (DC-AE) on {sana_device} (one-time; ~1.2GB download if not cached)...")
+        sana_model = load_dc_ae(args.sana_model_id, sana_device)
+
     n_present, n_removed = 0, 0
     n_optimization_attack = 0
     n_optimization_removed_after_jpeg = 0
     n_ctrlregen_attack = 0
     n_ctrlregen_removed_after_jpeg = 0
+    n_sana_attack = 0
+    n_sana_removed_after_jpeg = 0
+    n_generic_attack = 0
+    n_generic_removed_after_jpeg = 0
 
     for idx, img_path in enumerate(sorted(args.raw.glob("*.png"))):
         raw_bgr = cv2.imread(str(img_path))
@@ -102,9 +120,15 @@ def main():
 
         roll = random.random()
         use_ctrlregen_attack = ctrlregen_pipe is not None and roll < args.ctrlregen_frac
+        use_sana_attack = (
+            not use_ctrlregen_attack
+            and sana_model is not None
+            and roll < args.ctrlregen_frac + args.sana_frac
+        )
         use_optimization_attack = (
             not use_ctrlregen_attack
-            and roll < args.ctrlregen_frac + args.optimization_frac
+            and not use_sana_attack
+            and roll < args.ctrlregen_frac + args.sana_frac + args.optimization_frac
         )
 
         if use_ctrlregen_attack:
@@ -113,6 +137,9 @@ def main():
                 ctrlregen_pipe, wm_bgr, args.ctrlregen_step,
                 seed=args.seed + idx, size=args.ctrlregen_img_size,
             )
+        elif use_sana_attack:
+            n_sana_attack += 1
+            attacked = apply_diffusion_regen(wm_bgr, sana_model, sana_device, args.img_size)
         elif use_optimization_attack:
             n_optimization_attack += 1
             opt_result = greedy_block_attack(
@@ -122,6 +149,7 @@ def main():
             )
             attacked = cv2.cvtColor(opt_result["image"], cv2.COLOR_RGB2BGR)
         else:
+            n_generic_attack += 1
             # Randomized attack strength: spans "barely touched" to "heavily attacked"
             num_passes = random.choice([0, 1, 1, 2, 2, 3, 4, 5])
             jpeg_quality = random.randint(5, 90)
@@ -145,6 +173,10 @@ def main():
             n_optimization_removed_after_jpeg += 1
         if use_ctrlregen_attack and not present:
             n_ctrlregen_removed_after_jpeg += 1
+        if use_sana_attack and not present:
+            n_sana_removed_after_jpeg += 1
+        if not (use_ctrlregen_attack or use_sana_attack or use_optimization_attack) and not present:
+            n_generic_removed_after_jpeg += 1
 
         out_dir = args.out_present if present else args.out_removed
         cv2.imwrite(str(out_dir / img_path.name), attacked)
@@ -168,6 +200,20 @@ def main():
             f"{n_ctrlregen_removed_after_jpeg}/{n_ctrlregen_attack} still 'removed' "
             f"after mandatory JPEG-{args.save_quality} re-encode "
             f"({n_ctrlregen_removed_after_jpeg / n_ctrlregen_attack:.1%} survival)"
+        )
+    if n_sana_attack:
+        print(
+            f"SANA-VAE attack: {n_sana_attack} images attacked, "
+            f"{n_sana_removed_after_jpeg}/{n_sana_attack} still 'removed' "
+            f"after mandatory JPEG-{args.save_quality} re-encode "
+            f"({n_sana_removed_after_jpeg / n_sana_attack:.1%} survival)"
+        )
+    if n_generic_attack:
+        print(
+            f"generic distortion attack: {n_generic_attack} images attacked, "
+            f"{n_generic_removed_after_jpeg}/{n_generic_attack} still 'removed' "
+            f"after mandatory JPEG-{args.save_quality} re-encode "
+            f"({n_generic_removed_after_jpeg / n_generic_attack:.1%} survival)"
         )
 
 

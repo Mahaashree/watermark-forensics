@@ -1,0 +1,14 @@
+{
+  "task": "task1_nonwatermarked_degradation_control",
+  "config": "configs/v2_lowmem.yaml",
+  "checkpoint": "checkpoints_v2/best_model.pt",
+  "csv": "data/splits_v2/test_task1_control.csv",
+  "auroc": 0.6106830487296959,
+  "n_samples": 196,
+  "n_removed": 98,
+  "n_control": 98,
+  "removed_mean_prob": 0.5374602675437927,
+  "removed_std_prob": 0.11220289766788483,
+  "control_mean_prob": 0.49267879128456116,
+  "control_std_prob": 0.0824088528752327
+}

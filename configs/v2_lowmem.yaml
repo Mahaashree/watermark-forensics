@@ -1,0 +1,57 @@
+data:
+  raw_dir: "data/raw"
+  watermarked_dir: "data/watermarked_v2"
+  removed_dir: "data/removed_v2"
+  edited_dir: "data/edited"
+
+  splits_dir: "data/splits_v2"
+
+  img_size: 224
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+  num_workers: 0
+
+watermark:
+  method: "dwt_dct_svd"
+  alpha: 0.02
+  block_size: 8
+  dwt_level: 2
+  watermark_seed: 42
+  verify_threshold: 0.5
+
+model:
+  name: "convnext_tiny"
+  pretrained: true
+  num_classes: 2
+  dropout: 0.1
+
+train:
+  # batch_size lowered 16 -> 8 vs. configs/v2.yaml for this run only, to work
+  # around severe host memory pressure (8GB RAM, heavy Chrome load) causing
+  # ~16 min periodic swap-thrashing stalls during training. Everything else
+  # is identical to the baseline config. Flagged explicitly rather than
+  # silently changed -- this is a real deviation from the original
+  # baseline's batch_size=16 and is a plausible (if likely minor) confound
+  # alongside the new dataset when comparing results.
+  batch_size: 8
+  batch_size_fallback: 8
+  lr: 0.0001
+  weight_decay: 0.0001
+  epochs: 12
+  device: "auto"
+  mixed_precision: true
+  grad_clip: 1.0
+  early_stopping_patience: 5
+  save_dir: "checkpoints_v2"
+  log_dir: "results/logs_v2"
+
+eval:
+  metrics:
+    - "accuracy"
+    - "auroc"
+    - "precision"
+    - "recall"
+    - "f1"
+  save_dir: "results/v2"
