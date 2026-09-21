@@ -204,6 +204,7 @@ def greedy_block_attack(
         "iters_used": iters_used,
         "converged": converged,
         "elapsed_s": elapsed,
+        "deltas": deltas,  # per-block DC-coefficient delta actually applied to `best_image`, for inspection/visualization
     }
 
 
