@@ -1,0 +1,62 @@
+data:
+  raw_dir: "data/raw"
+  watermarked_dir: "data/watermarked_v2"
+  removed_dir: "data/removed_v2"
+  edited_dir: "data/edited"
+
+  splits_dir: "data/splits_v2"
+
+  img_size: 224
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+  num_workers: 0
+
+watermark:
+  method: "dwt_dct_svd"
+  alpha: 0.02
+  block_size: 8
+  dwt_level: 2
+  watermark_seed: 42
+  verify_threshold: 0.5
+
+model:
+  name: "convnext_tiny"
+  pretrained: true
+  num_classes: 2
+  dropout: 0.1
+
+train:
+  # Physical batch_size=8 (avoids the host memory-pressure stalls that hit
+  # batch_size=16, see configs/v2_lowmem.yaml), with grad_accum_steps=2 to
+  # recover the baseline's effective batch size of 16 -- each optimizer
+  # step is computed from 2 accumulated micro-batches of 8, matching the
+  # gradient-noise/update dynamics of a true batch-16 run rather than a
+  # smaller one. This isolates the batch-size variable: everything else
+  # (architecture, lr, weight_decay, scheduler, patience, dropout) is
+  # identical to the original baseline config, so any AUROC delta between
+  # this run and the true batch=16 baseline should be attributable to the
+  # new attack mix (distortion_optimization + SANA-VAE) rather than to
+  # batch size.
+  batch_size: 8
+  grad_accum_steps: 2
+  batch_size_fallback: 8
+  lr: 0.0001
+  weight_decay: 0.0001
+  epochs: 12
+  device: "auto"
+  mixed_precision: true
+  grad_clip: 1.0
+  early_stopping_patience: 5
+  save_dir: "checkpoints_v2_accum"
+  log_dir: "results/logs_v2_accum"
+
+eval:
+  metrics:
+    - "accuracy"
+    - "auroc"
+    - "precision"
+    - "recall"
+    - "f1"
+  save_dir: "results/v2_accum"

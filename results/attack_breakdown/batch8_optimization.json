@@ -1,0 +1,22 @@
+{
+  "subset": "optimization",
+  "accuracy": 0.5421686746987951,
+  "auroc": 0.7327327327327328,
+  "precision": 0.95,
+  "recall": 0.5135135135135135,
+  "f1": 0.6666666666666666,
+  "confusion_matrix": [
+    [
+      7,
+      2
+    ],
+    [
+      36,
+      38
+    ]
+  ],
+  "loss": 0.6478075456906514,
+  "n_samples": 83,
+  "n_present": 9,
+  "n_removed": 74
+}

@@ -61,33 +61,45 @@ def resolve_class_weights(cfg, device: torch.device):
     raise ValueError(f"Unrecognized train.class_weights value: {spec!r}")
 
 
-def train_one_epoch(model, loader, optimizer, criterion, device, scaler, grad_clip, use_amp):
+def train_one_epoch(model, loader, optimizer, criterion, device, scaler, grad_clip, use_amp, grad_accum_steps=1):
+    """grad_accum_steps > 1 accumulates gradients over that many micro-batches
+    before each optimizer.step(), simulating a larger effective batch size
+    (physical_batch_size * grad_accum_steps) at the physical batch's memory
+    footprint. Each micro-batch's loss is divided by grad_accum_steps before
+    backward() so the accumulated gradient approximates the true mean-loss
+    gradient over the full effective batch, not a sum over it."""
     model.train()
     total_loss = 0.0
     correct = 0
     total = 0
+    num_batches = len(loader)
 
-    for imgs, labels in tqdm(loader, desc="Train", leave=False):
+    optimizer.zero_grad()
+    for i, (imgs, labels) in enumerate(tqdm(loader, desc="Train", leave=False)):
         imgs, labels = imgs.to(device), labels.to(device)
-        optimizer.zero_grad()
+        is_accum_boundary = ((i + 1) % grad_accum_steps == 0) or (i + 1 == num_batches)
 
         if use_amp:
             with torch.amp.autocast("cuda"):
                 logits = model(imgs)
                 loss = criterion(logits, labels)
-            scaler.scale(loss).backward()
-            if grad_clip:
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-            scaler.step(optimizer)
-            scaler.update()
+            scaler.scale(loss / grad_accum_steps).backward()
+            if is_accum_boundary:
+                if grad_clip:
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
         else:
             logits = model(imgs)
             loss = criterion(logits, labels)
-            loss.backward()
-            if grad_clip:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-            optimizer.step()
+            (loss / grad_accum_steps).backward()
+            if is_accum_boundary:
+                if grad_clip:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+                optimizer.step()
+                optimizer.zero_grad()
 
         total_loss += loss.item() * imgs.size(0)
         correct += (logits.argmax(1) == labels).sum().item()
@@ -172,6 +184,11 @@ def main():
     use_amp = cfg["train"]["mixed_precision"] and device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
 
+    grad_accum_steps = cfg["train"].get("grad_accum_steps", 1)
+    if grad_accum_steps > 1:
+        effective_batch = cfg["train"]["batch_size"] * grad_accum_steps
+        logger.info(f"Grad accumulation: {grad_accum_steps} steps -> effective batch size {effective_batch}")
+
     best_val_acc = 0.0
     patience = 0
     save_dir = Path(cfg["train"]["save_dir"])
@@ -179,7 +196,7 @@ def main():
 
     for epoch in range(1, cfg["train"]["epochs"] + 1):
         train_loss, train_acc = train_one_epoch(
-            model, train_dl, optimizer, criterion, device, scaler, cfg["train"]["grad_clip"], use_amp
+            model, train_dl, optimizer, criterion, device, scaler, cfg["train"]["grad_clip"], use_amp, grad_accum_steps
         )
         val_loss, val_acc, _, _ = evaluate(model, val_dl, criterion, device, use_amp)
         scheduler.step()
