@@ -1,0 +1,68 @@
+data:
+  raw_dir: "data/raw"
+  watermarked_dir: "data/watermarked_v2"
+  removed_dir: "data/removed_v2"
+  edited_dir: "data/edited"
+
+  splits_dir: "data/splits_v2"
+
+  img_size: 224
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+  num_workers: 0
+
+watermark:
+  method: "dwt_dct_svd"
+  alpha: 0.02
+  block_size: 8
+  dwt_level: 2
+  watermark_seed: 42
+  verify_threshold: 0.5
+
+model:
+  name: "convnext_tiny"
+  pretrained: true
+  num_classes: 2
+  dropout: 0.1
+
+train:
+  # Same batch_size=8 + grad_accum_steps=2 (effective batch 16, matching
+  # baseline) as configs/v2_accum.yaml -- that run collapsed to an
+  # always-predict-"removed" classifier (val acc stuck at 0.5467, exactly
+  # the val split's majority-class rate 82/150, from epoch 1 onward).
+  #
+  # Root-cause candidate: optimizer STEP count, not just effective batch
+  # size. batch=8 (no accumulation, tonight's committed run) gets ~75
+  # optimizer steps/epoch and converged properly over 12 epochs = ~900
+  # total steps. batch=8+accum=2 gets ~38 steps/epoch (half as many weight
+  # updates per epoch) -- at the original epochs=12/patience=5 budget that's
+  # only ~456 total steps, roughly half of what worked. epochs=36 at ~38
+  # steps/epoch gives ~1350 total steps, comfortably past the 900-step
+  # budget that converged at batch=8, with margin for this being a harder
+  # dataset. patience scaled proportionally (5 -> 15) so early stopping
+  # doesn't cut this budget short for the same reason the original budget
+  # did. Nothing else changed from v2_accum.yaml (lr, weight_decay,
+  # dropout, architecture all identical to baseline).
+  batch_size: 8
+  grad_accum_steps: 2
+  batch_size_fallback: 8
+  lr: 0.0001
+  weight_decay: 0.0001
+  epochs: 36
+  device: "auto"
+  mixed_precision: true
+  grad_clip: 1.0
+  early_stopping_patience: 15
+  save_dir: "checkpoints_v2_accum_long"
+  log_dir: "results/logs_v2_accum_long"
+
+eval:
+  metrics:
+    - "accuracy"
+    - "auroc"
+    - "precision"
+    - "recall"
+    - "f1"
+  save_dir: "results/v2_accum_long"
