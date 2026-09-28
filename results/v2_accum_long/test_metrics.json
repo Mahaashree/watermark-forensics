@@ -15,6 +15,20 @@
       85
     ]
   ],
+  "tpr_near_1pct_fpr": {
+    "label": "TPR@1.92%FPR (nearest achievable to 1%)",
+    "target_fpr": 0.01,
+    "achieved_fpr": 0.019230769230769232,
+    "tpr": 0.17346938775510204
+  },
+  "tpr_near_0.1pct_fpr": {
+    "label": "TPR@1.92%FPR (nearest achievable to 0.1%)",
+    "target_fpr": 0.001,
+    "achieved_fpr": 0.019230769230769232,
+    "tpr": 0.17346938775510204
+  },
+  "n_negative_present_class": 52,
+  "tpr_low_fpr_note": "FPR resolution is 1/n_negative = 1/52 ~= 1.92% per ROC step. TPR@low-FPR is reported at the nearest achievable FPR >= the requested target, not interpolated between the two neighboring points, since interpolating on 52 negatives would imply a precision this sample size doesn't support.",
   "loss": 0.6411400032043457,
   "n_samples": 150
 }

@@ -1,5 +1,6 @@
 """
-Evaluation: accuracy, AUROC, precision, recall, F1, confusion matrix.
+Evaluation: accuracy, AUROC, precision, recall, F1, confusion matrix,
+TPR@low-FPR operating points.
 CLI: python src/evaluate.py --config configs/default.yaml --checkpoint checkpoints/best_model.pt --split test
 """
 
@@ -8,7 +9,7 @@ import yaml
 import json
 import torch
 import torch.nn as nn
-from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_fscore_support, confusion_matrix
+from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_fscore_support, confusion_matrix, roc_curve
 from pathlib import Path
 from tqdm import tqdm
 
@@ -16,6 +17,24 @@ from src.utils.seed import set_seed
 from src.data.dataset import create_dataloaders
 from src.models.classifier import WatermarkClassifier, ModelConfig
 from src.train import resolve_device
+
+
+def tpr_at_fpr(labels, probs, target_fpr: float):
+    """TPR at the nearest achievable FPR >= target_fpr on the empirical ROC
+    curve -- NOT interpolated between points. With small test sets, FPR only
+    takes discrete steps of 1/n_neg (e.g. 1/52 ~= 1.92%), so a target that
+    falls inside a gap between two real operating points has no achieved
+    point at exactly that FPR; interpolating between the neighboring points
+    would imply a precision the sample size doesn't support. Instead this
+    rounds UP to the nearest FPR the test set can actually produce and
+    reports that operating point honestly (both the achieved FPR and its
+    TPR), rather than a number interpolated at target_fpr itself.
+    Returns (achieved_fpr, tpr_at_that_fpr)."""
+    fpr, tpr, _ = roc_curve(labels, probs)
+    candidates = fpr[fpr >= target_fpr]
+    achieved_fpr = float(candidates.min()) if candidates.size else float(fpr[-1])
+    achieved_tpr = float(tpr[fpr == achieved_fpr].max())
+    return achieved_fpr, achieved_tpr
 
 
 def main():
@@ -83,6 +102,10 @@ def main():
     auroc = roc_auc_score(labels, probs)
     prec, rec, f1, _ = precision_recall_fscore_support(labels, preds, average="binary")
     cm = confusion_matrix(labels, preds).tolist()
+    n_neg = int((labels == 0).sum())
+
+    fpr_near_1pct, tpr_near_1pct = tpr_at_fpr(labels, probs, 0.01)
+    fpr_near_01pct, tpr_near_01pct = tpr_at_fpr(labels, probs, 0.001)
 
     results = {
         "split": args.split,
@@ -92,6 +115,25 @@ def main():
         "recall": rec,
         "f1": f1,
         "confusion_matrix": cm,
+        "tpr_near_1pct_fpr": {
+            "label": f"TPR@{fpr_near_1pct:.2%}FPR (nearest achievable to 1%)",
+            "target_fpr": 0.01,
+            "achieved_fpr": fpr_near_1pct,
+            "tpr": tpr_near_1pct,
+        },
+        "tpr_near_0.1pct_fpr": {
+            "label": f"TPR@{fpr_near_01pct:.2%}FPR (nearest achievable to 0.1%)",
+            "target_fpr": 0.001,
+            "achieved_fpr": fpr_near_01pct,
+            "tpr": tpr_near_01pct,
+        },
+        "n_negative_present_class": n_neg,
+        "tpr_low_fpr_note": (
+            f"FPR resolution is 1/n_negative = 1/{n_neg} ~= {1/n_neg:.2%} per ROC step. "
+            "TPR@low-FPR is reported at the nearest achievable FPR >= the requested target, "
+            "not interpolated between the two neighboring points, since interpolating on "
+            f"{n_neg} negatives would imply a precision this sample size doesn't support."
+        ),
         "loss": total_loss / total,
         "n_samples": int(total)
     }

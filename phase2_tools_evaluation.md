@@ -1,5 +1,13 @@
 # Phase 2 Tools Evaluation — Real Watermark-Removal Attacks
 
+**Scope note:** everything below (DiffPure, SANA-VAE, CtrlRegen, WMForger,
+UnMarker) is **Module 2** — attack-family building blocks evaluated for use
+in *constructing our own training dataset* (`build_verified_dataset.py`).
+None of it is Gap 1 evidence. Gap 1 ("do detectors survive real,
+independently-downloaded removal tools?") is tracked separately at the
+bottom of this file, under **"Gap 1: Real-Tool Evaluation"** — do not
+re-conflate the two sections.
+
 Evaluates the four attacks used in ["The Forensic Cost of Watermark Removal:
 From Dedicated Attacks to Image Editing"](https://arxiv.org/abs/2604.25491)
 (Evennou & Kijak, submitted Apr 2026) for integration into
@@ -141,3 +149,65 @@ license, single `pip install`, sub-GB to ~1GB download, confirmed CPU-capable
 (matches this project's no-GPU-guaranteed local environment), and a minimal,
 well-documented single-image API that maps directly onto the "VAE
 reconstruction" attack paper 2 describes.
+
+---
+
+# Gap 1: Real-Tool Evaluation
+
+**This section, and only this section, is Gap 1 evidence** ("do detectors
+trained on our own attack-family building blocks still work against real
+tools that real users download to strip watermarks?"). Everything above
+this line is Module 2 (attack families used to build our training data) --
+distinct question, not to be conflated with what follows.
+
+## remove-ai-watermarks (github.com/wiltodelta/remove-ai-watermarks)
+
+Independently verified to exist before cloning (not assumed from prior
+context): 5,624 stars at check time, Apache-2.0, real PyPI package
+(`remove-ai-watermarks`).
+
+**Setup attempted, ~2 minutes into a 60-minute budget -- stopped early on a
+clean, code-verified double-disqualification, not a timeout.**
+
+The tool has two distinct paths for invisible-watermark removal, per its own
+README:
+
+1. **`invisible` command (diffusion regeneration via a Qwen z-image
+   pipeline)** -- this is the path that would generically apply to our
+   custom DWT-DCT-SVD watermark regardless of scheme, the one the task
+   asked to test. Traced to source (`invisible_engine.py`,
+   `_internal/qwen_zimage_pipeline.py`): the engine calls
+   `self._require_cuda()` directly, and the docstring states outright:
+   > "ALL ARE CUDA-ONLY -- there is no CPU or MPS path for
+   > invisible-watermark removal."
+
+   This machine has no CUDA (confirmed repeatedly throughout this project --
+   MPS and CPU only). **Same disqualifying pattern as DiffPure and
+   UnMarker**: a real, hard, code-level GPU requirement with zero fallback,
+   not a soft "slower on CPU" case.
+
+2. **"Direct local-format disruption" (`pixels` extra,
+   `microsoft_invismark.py`)** -- the README's other invisible-removal path.
+   Traced to source: this is scheme-specific to Microsoft's proprietary
+   **InvisMark** declaration (Paint/Photos), not a generic pixel-domain
+   attack. It would not recognize or meaningfully attack our custom
+   watermark at all -- **the same scheme-coupling problem that disqualified
+   UnMarker** (built to strip one specific known signature, not to
+   generically disrupt an arbitrary invisible watermark).
+
+**Verdict: disqualified, both available invisible-removal paths, for two
+different reasons that happen to mirror the project's two prior
+disqualification patterns exactly (DiffPure/UnMarker's GPU-only
+requirement, and UnMarker's scheme-coupling).** No dataset was built, no
+images were run through it, no classifier score exists for this tool.
+
+**Per instruction: not silently substituting another Module-2 attack and
+calling this done.** Reporting back to pivot to Synthid-Bypass
+(github.com/cebeuq/Synthid-Bypass, ComfyUI-based) as the next real-tool
+candidate -- not yet attempted.
+
+**Gap 1 status: still zero real-tool evidence.** Nothing in this section
+should be read as a completed Gap 1 result; it documents a disqualification,
+not a measurement. TPR@1%FPR / TPR@0.1%FPR support was not added to
+`src/evaluate.py` this pass since there is no real-tool-attacked subset yet
+to score with it -- deferred until a viable tool is found.
