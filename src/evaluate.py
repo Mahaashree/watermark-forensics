@@ -1,5 +1,6 @@
 """
-Evaluation: accuracy, AUROC, precision, recall, F1, confusion matrix.
+Evaluation: accuracy, AUROC, precision, recall, F1, confusion matrix,
+TPR@low-FPR operating points.
 CLI: python src/evaluate.py --config configs/default.yaml --checkpoint checkpoints/best_model.pt --split test
 """
 
@@ -8,13 +9,32 @@ import yaml
 import json
 import torch
 import torch.nn as nn
-from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_fscore_support, confusion_matrix
+from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_fscore_support, confusion_matrix, roc_curve
 from pathlib import Path
 from tqdm import tqdm
 
 from src.utils.seed import set_seed
 from src.data.dataset import create_dataloaders
 from src.models.classifier import WatermarkClassifier, ModelConfig
+from src.train import resolve_device
+
+
+def tpr_at_fpr(labels, probs, target_fpr: float):
+    """TPR at the nearest achievable FPR >= target_fpr on the empirical ROC
+    curve -- NOT interpolated between points. With small test sets, FPR only
+    takes discrete steps of 1/n_neg (e.g. 1/52 ~= 1.92%), so a target that
+    falls inside a gap between two real operating points has no achieved
+    point at exactly that FPR; interpolating between the neighboring points
+    would imply a precision the sample size doesn't support. Instead this
+    rounds UP to the nearest FPR the test set can actually produce and
+    reports that operating point honestly (both the achieved FPR and its
+    TPR), rather than a number interpolated at target_fpr itself.
+    Returns (achieved_fpr, tpr_at_that_fpr)."""
+    fpr, tpr, _ = roc_curve(labels, probs)
+    candidates = fpr[fpr >= target_fpr]
+    achieved_fpr = float(candidates.min()) if candidates.size else float(fpr[-1])
+    achieved_tpr = float(tpr[fpr == achieved_fpr].max())
+    return achieved_fpr, achieved_tpr
 
 
 def main():
@@ -22,13 +42,25 @@ def main():
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--split", type=str, default="test", choices=["train", "val", "test"])
+    parser.add_argument("--seed", type=int, default=None,
+                         help="Override cfg['data']['seed']. Only affects "
+                              "dataloader shuffling determinism, not which "
+                              "checkpoint is loaded — pass --checkpoint "
+                              "explicitly for the matching seed run.")
+    parser.add_argument("--tag", type=str, default=None,
+                         help="Suffix for the saved metrics filename, e.g. "
+                              "'seed1', so multi-seed eval runs don't "
+                              "overwrite each other's {split}_metrics.json.")
     args = parser.parse_args()
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
+    if args.seed is not None:
+        cfg["data"]["seed"] = args.seed
+
     set_seed(cfg["data"]["seed"])
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_device(cfg["train"]["device"])
 
     train_dl, val_dl, test_dl = create_dataloaders(
         Path(cfg["data"]["splits_dir"]),
@@ -70,6 +102,10 @@ def main():
     auroc = roc_auc_score(labels, probs)
     prec, rec, f1, _ = precision_recall_fscore_support(labels, preds, average="binary")
     cm = confusion_matrix(labels, preds).tolist()
+    n_neg = int((labels == 0).sum())
+
+    fpr_near_1pct, tpr_near_1pct = tpr_at_fpr(labels, probs, 0.01)
+    fpr_near_01pct, tpr_near_01pct = tpr_at_fpr(labels, probs, 0.001)
 
     results = {
         "split": args.split,
@@ -79,6 +115,25 @@ def main():
         "recall": rec,
         "f1": f1,
         "confusion_matrix": cm,
+        "tpr_near_1pct_fpr": {
+            "label": f"TPR@{fpr_near_1pct:.2%}FPR (nearest achievable to 1%)",
+            "target_fpr": 0.01,
+            "achieved_fpr": fpr_near_1pct,
+            "tpr": tpr_near_1pct,
+        },
+        "tpr_near_0.1pct_fpr": {
+            "label": f"TPR@{fpr_near_01pct:.2%}FPR (nearest achievable to 0.1%)",
+            "target_fpr": 0.001,
+            "achieved_fpr": fpr_near_01pct,
+            "tpr": tpr_near_01pct,
+        },
+        "n_negative_present_class": n_neg,
+        "tpr_low_fpr_note": (
+            f"FPR resolution is 1/n_negative = 1/{n_neg} ~= {1/n_neg:.2%} per ROC step. "
+            "TPR@low-FPR is reported at the nearest achievable FPR >= the requested target, "
+            "not interpolated between the two neighboring points, since interpolating on "
+            f"{n_neg} negatives would imply a precision this sample size doesn't support."
+        ),
         "loss": total_loss / total,
         "n_samples": int(total)
     }
@@ -87,7 +142,8 @@ def main():
 
     save_dir = Path(cfg["eval"]["save_dir"])
     save_dir.mkdir(parents=True, exist_ok=True)
-    with open(save_dir / f"{args.split}_metrics.json", "w") as f:
+    filename = f"{args.split}_metrics_{args.tag}.json" if args.tag else f"{args.split}_metrics.json"
+    with open(save_dir / filename, "w") as f:
         json.dump(results, f, indent=2)
 
 

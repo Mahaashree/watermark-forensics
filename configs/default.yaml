@@ -1,9 +1,12 @@
 data:
   raw_dir: "data/raw"
-  watermarked_dir: "data/watermarked"
-  removed_dir: "data/removed"
+  watermarked_dir: "data/watermarked_jpeg80"
+  removed_dir: "data/removed_jpeg80"
   edited_dir: "data/edited"
+
+  # Existing split files
   splits_dir: "data/splits"
+
   img_size: 224
   train_split: 0.70
   val_split: 0.15
@@ -47,5 +50,10 @@ train:
   log_dir: "results/logs"
 
 eval:
-  metrics: ["accuracy", "auroc", "precision", "recall", "f1"]
+  metrics:
+    - "accuracy"
+    - "auroc"
+    - "precision"
+    - "recall"
+    - "f1"
   save_dir: "results"

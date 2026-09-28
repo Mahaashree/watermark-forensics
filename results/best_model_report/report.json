@@ -1,0 +1,72 @@
+{
+  "checkpoint": "checkpoints_v2_accum_long/best_model.pt",
+  "config": "configs/v2_accum_long.yaml",
+  "split": "test",
+  "n_samples": 150,
+  "n_present": 52,
+  "n_removed": 98,
+  "pooled": {
+    "accuracy": 0.6733333333333333,
+    "auroc": 0.6614992150706436,
+    "precision": 0.7024793388429752,
+    "recall": 0.8673469387755102,
+    "f1": 0.776255707762557,
+    "confusion_matrix": [
+      [
+        16,
+        36
+      ],
+      [
+        13,
+        85
+      ]
+    ],
+    "present_class_recall": 0.3076923076923077,
+    "tpr_near_1pct_fpr": {
+      "label": "TPR@1.92%FPR (nearest achievable to 1%)",
+      "target_fpr": 0.01,
+      "achieved_fpr": 0.019230769230769232,
+      "tpr": 0.17346938775510204
+    },
+    "tpr_near_0.1pct_fpr": {
+      "label": "TPR@1.92%FPR (nearest achievable to 0.1%)",
+      "target_fpr": 0.001,
+      "achieved_fpr": 0.019230769230769232,
+      "tpr": 0.17346938775510204
+    },
+    "n_negative_present_class": 52,
+    "tpr_low_fpr_note": "FPR resolution is 1/n_negative = 1/52 ~= 1.92% per ROC step. TPR@low-FPR is reported at the nearest achievable FPR >= the requested target, not interpolated between the two neighboring points, since interpolating on 52 negatives would imply a precision this sample size doesn't support.",
+    "loss": 0.6411400032043457
+  },
+  "per_attack_type": {
+    "distortion_optimization": {
+      "accuracy": 0.8674698795180723,
+      "precision": 0.9436619718309859,
+      "recall": 0.9054054054054054,
+      "f1": 0.9241379310344827,
+      "auroc": 0.7687687687687688,
+      "n_samples": 83,
+      "n_present": 9,
+      "n_removed": 74
+    },
+    "sana_vae": {
+      "accuracy": 0.43283582089552236,
+      "precision": 0.36,
+      "recall": 0.75,
+      "f1": 0.4864864864864865,
+      "auroc": 0.6482558139534883,
+      "n_samples": 67,
+      "n_present": 43,
+      "n_removed": 24
+    }
+  },
+  "per_attack_type_small_sample_note": "distortion_optimization's present class has n=9; its precision/recall/F1/AUROC are high-variance and should not be read as a confident per-family result.",
+  "pr_curve_truncation_check": "Verified against the saved PNG pixel data and the underlying recall array: recall genuinely spans [0, 1] and the plotted content extends to the figure's right edge. Any apparent cutoff at recall~=0.85 in a chat/thumbnail preview is a display artifact, not a bug in the saved figure or the plotting code's axis limits (which were already ax.set_xlim(0, 1)).",
+  "embedding_fragility_note": "One inference-demo example (data/raw/0300.png, flowers) has a pre-attack watermarked verify() correlation of only 0.525 -- barely above the 0.5 presence threshold before any attack was applied -- indicating some source images embed the watermark weakly at alpha=0.02 even with no attack in play.",
+  "source_of_truth": {
+    "pooled_metrics": "results/v2_accum_long/test_metrics.json",
+    "distortion_optimization_metrics": "results/attack_breakdown/accum_long_optimization.json",
+    "sana_vae_metrics": "results/attack_breakdown/accum_long_sana.json",
+    "cached_inference": "/tmp/accum_long_roc_data.npz (verified AUROC + confusion matrix match test_metrics.json exactly)"
+  }
+}

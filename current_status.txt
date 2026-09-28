@@ -1,10 +1,11 @@
 Phase 1 is DONE — all 4 criteria from the definition of done are met:
 Criterion	Status
 Full pipeline runs end-to-end	✅ All 8 CLI commands work
-Classifier > random accuracy	✅ Test: 100% accuracy, 1.0 AUROC
+Classifier > random accuracy	✅ Test: 100% accuracy, 1.0 AUROC (see caveats below)
 Clean, documented, reproducible	✅ README + experiments/exp1_baseline_repro/notes.md
 Understanding to explain without code	✅ Documented in notes
-Key Results (from experiments/exp1_baseline_repro/notes.md)
+
+Key Results (original 100-image run, from experiments/exp1_baseline_repro/notes.md)
 Watermark verification:
 Set	Passed	Failed
 Watermarked	97/100	3/100
@@ -14,11 +15,99 @@ Split	Accuracy	AUROC
 Train	1.000	1.000
 Val	1.000	1.000
 Test	1.000	1.000
-Critical Caveat (documented in notes)
-The 100% accuracy is a format leak — the distortion attack is extremely aggressive (JPEG q=2, Gaussian std=45, blur kernel=13, 6 passes). The classifier detects heavy visual degradation, not subtle watermark-removal artifacts.
-A "mild" experiment (baseline_results_mild.json) with realistic attack params shows the true difficulty: ~33% test accuracy (near random).
-Next Steps (Phase 2)
-- Swap distortion for diffusion regeneration attacks
-- Test on larger dataset  
+
+Critical Caveat (original)
+The 100% accuracy was a format leak — the distortion attack was extremely aggressive
+(JPEG q=2, Gaussian std=45, blur kernel=13, 6 passes) and watermarked/removed images
+were saved in different formats (PNG vs JPEG-derived). The classifier detected heavy
+visual degradation / format artifacts, not subtle watermark-removal signal.
+
+--- Session update (2026-08-25) ---
+
+Fixes applied so far:
+1. Format leak fixed: both classes now re-encoded to matching JPEG quality (80) via
+   --save-quality flag on both src.watermark.embed and src.attacks.distortion.
+2. Dataset expanded 100 -> 900 raw images (DIV2K train set, scripts/download_div2k.py
+   now supports --split train, official ETH mirror). Rebuilt splits:
+   Train 1260 (630/630), Val 270 (135/135), Test 270 (135/135).
+3. Attack softened from extreme (q=2, std=45, blur=13, 6 passes) to mild
+   (q=60, std=12, blur=3, 1 pass) — still trivially separable.
+4. Tried "shared baseline" distortion (same light jpeg85+std3 noise applied to BOTH
+   classes, then extra attack only on removed class) — model still hit 99.6% test
+   accuracy. The extra attack layer (q=60/std=12/blur=3/resize=0.7) remained ~4x
+   stronger than the baseline (q=85/std=3), so intensity alone was still a usable
+   shortcut, independent of actual watermark survival.
+
+Root cause (confirmed): labels are currently assigned by construction ("which folder
+did we put the file in"), not by whether the watermark is actually still detectable.
+Any attack strong enough to plausibly remove a DWT-DCT-SVD watermark leaves generic
+degradation artifacts (noise/blur/compression) that a CNN can key on directly, without
+ever needing to reason about the watermark itself. This makes the task trivially easy
+regardless of dataset size.
+
+Proposed fix (not yet run — in progress, paused mid-implementation):
+scripts/build_verified_dataset.py (created, not executed) — applies a RANDOMIZED attack
+strength (num_passes 0-3, jpeg quality 40-90, gaussian std 2-20, blur kernel {1,3,5},
+resize 0.5-1.0) to EVERY image, then uses the watermark method's own extract()/verify()
+against the true original to decide the label (watermark still detected vs removed).
+This way surface-level degradation overlaps heavily across both classes (some
+"removed" images are barely touched, some "present" images are heavily touched), and
+the only reliable signal left is the watermark's actual survival — forcing the
+classifier to learn the real forensic task instead of an attack-intensity shortcut.
+
+Next steps:
+- Run scripts/build_verified_dataset.py to produce data/watermarked_v2 and
+  data/removed_v2 with verification-based labels.
+- Rebuild splits from data/watermarked_v2 / data/removed_v2.
+- Retrain and re-evaluate. Expect accuracy well below 100% (a harder, more honest
+  number) — treat that as success, not a regression.
+- If still trivially separable, increase alpha (watermark strength) so survival vs.
+  removal isn't fully correlated with attack magnitude, and/or widen the randomized
+  attack range further.
+
+--- Session update (2026-08-26) ---
+
+Ran scripts/build_verified_dataset.py (the fix proposed above). Findings and fixes:
+1. First run (alpha=0.2, mild randomized attack range): 835 present / 65 removed.
+   The SVD-based watermark barely touches under mild JPEG/blur/noise, so almost
+   nothing gets removed -> severe class imbalance.
+2. Widened attack range (num_passes 0-5, jpeg 5-90, gaussian_std 2-40, blur
+   {1,3,5,7,9}, resize 0.25-1.0): still 812/88. Widening the attack alone barely
+   moved the needle — the dominant singular value the watermark perturbs is just
+   not sensitive to these distortions until they're near-destructive.
+3. Swept --alpha (watermark strength) instead: 0.2->835/65, 0.12->821/79,
+   0.05->748/152, 0.03->589/311, 0.02->441/459. Verified alpha=0.02 still survives
+   an unattacked image (only the mandatory JPEG-80 save re-encode applied) 59/60
+   times, i.e. it's still a real, legitimate watermark, just not bulletproof.
+4. Rebuilt data/watermarked_v2 (441) + data/removed_v2 (459) at alpha=0.02,
+   verification-based labels. Splits (data/splits_v2): train 630 (309/321),
+   val 135 (66/69), test 135 (66/69) — balanced.
+5. Retrained ConvNeXt-Tiny (configs/v2.yaml) from scratch on splits_v2. Early
+   stopped at epoch 7 (best val acc 0.8741, epoch 2). Train acc kept climbing to
+   0.94 while val loss rose after epoch 2-3 — mild, expected overfitting on a
+   genuinely hard task, not the previous format/intensity leak.
+6. Test results (results/v2/test_metrics.json): accuracy 0.800, AUROC 0.8876,
+   precision 0.85, recall 0.739, f1 0.791. Confusion matrix [[57,9],[18,51]]
+   (rows=true watermarked/removed, cols=pred watermarked/removed).
+
+Conclusion: label leakage is fixed. The classifier is now learning something
+close to real watermark-survival signal instead of attack-intensity/format
+artifacts — accuracy dropped from a fake 100% to an honest ~80%, which is the
+expected outcome of this fix, not a regression.
+
+Next steps:
+- Recall on "removed" (0.74) trails precision (0.85) — model under-calls removal
+  more than it false-alarms. Consider class-weighted loss or threshold tuning if
+  the removed class needs to be prioritized.
+- Try longer training with a lower LR / stronger regularization to close the
+  train/val gap seen after epoch 2-3 (early stopping already caught the worst of it).
+- Sanity-check for source-image leakage across splits_v2 (same raw image split
+  across present/removed was not explicitly checked here).
+- Re-run with a couple of other seeds to see how stable ~80%/0.89 AUROC is on
+  this small (900-image) dataset before treating it as a final number.
+
+Next Phases (unchanged)
+- Phase 2: Swap distortion for diffusion regeneration attacks
 - Integrate SynthID-Bypass / ComfyUI
 - Measure if classifier detects removal when attack is subtle
+

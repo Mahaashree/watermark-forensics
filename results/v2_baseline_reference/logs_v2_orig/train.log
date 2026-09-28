@@ -1,0 +1,14 @@
+2026-08-26 17:52:35,954 - INFO - Device: cuda
+2026-08-26 17:52:35,955 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_v2', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 2, 'dropout': 0.1}, 'train': {'batch_size': 16, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'save_dir': 'checkpoints_v2', 'log_dir': 'results/logs_v2'}, 'eval': {'metrics': ['accuracy', 'auroc', 'precision', 'recall', 'f1'], 'save_dir': 'results/v2'}}
+2026-08-26 17:52:37,637 - INFO - Model: convnext_tiny, params: 27,821,666
+2026-08-26 17:53:11,784 - INFO - Epoch 001 | Train: 0.8273/0.5810 | Val: 0.4396/0.8370
+2026-08-26 17:53:11,923 - INFO -   -> New best: 0.8370
+2026-08-26 17:53:18,368 - INFO - Epoch 002 | Train: 0.5244/0.7540 | Val: 0.3579/0.8741
+2026-08-26 17:53:18,508 - INFO -   -> New best: 0.8741
+2026-08-26 17:53:24,780 - INFO - Epoch 003 | Train: 0.4716/0.7587 | Val: 0.3740/0.8667
+2026-08-26 17:53:31,134 - INFO - Epoch 004 | Train: 0.4998/0.8016 | Val: 0.4186/0.8593
+2026-08-26 17:53:37,339 - INFO - Epoch 005 | Train: 0.4839/0.8365 | Val: 0.3312/0.8741
+2026-08-26 17:53:43,724 - INFO - Epoch 006 | Train: 0.2825/0.8889 | Val: 0.5265/0.8222
+2026-08-26 17:53:49,960 - INFO - Epoch 007 | Train: 0.1687/0.9365 | Val: 0.5596/0.8444
+2026-08-26 17:53:49,961 - INFO - Early stopping at epoch 7
+2026-08-26 17:53:49,961 - INFO - Training complete. Best val acc: 0.8741

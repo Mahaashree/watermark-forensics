@@ -8,6 +8,7 @@ End-to-end pipeline: **Watermark → Attack → Dataset → Classifier → Evalu
 # 1. Install
 pip install -e .
 
+
 # 2. Download DIV2K validation (~800 images)
 python scripts/download_div2k.py --max-images 800
 
@@ -29,7 +30,7 @@ python -m src.watermark.embed --verify --watermarked data/removed --original dat
 python -m src.data.build_splits --watermarked data/watermarked --removed data/removed --splits data/splits
 
 # 7. Train ConvNeXt-Tiny classifier
-python src/train.py --config configs/default.yaml
+python -m src/train.py --config configs/default.yaml
 
 # 8. Evaluate on test set
 python src/evaluate.py --config configs/default.yaml --checkpoint checkpoints/best_model.pt --split test

@@ -1,10 +1,11 @@
 """
 Training loop with OOM fallback, mixed precision (torch.amp), early stopping.
-CLI: python src/train.py --config configs/default.yaml
+CLI: python src/train.py --config configs/default.yaml [--seed N]
 """
 
 import argparse
 import yaml
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
@@ -18,33 +19,87 @@ from src.data.dataset import create_dataloaders
 from src.models.classifier import WatermarkClassifier, ModelConfig
 
 
-def train_one_epoch(model, loader, optimizer, criterion, device, scaler, grad_clip, use_amp):
+def resolve_device(requested: str) -> torch.device:
+    """"auto" picks cuda > mps > cpu. "cpu" always forces cpu. Anything else
+    (e.g. explicit "cuda"/"mps") is used as-is if available, else falls back
+    to cpu."""
+    if requested == "cpu":
+        return torch.device("cpu")
+    if requested in ("auto", "cuda") and torch.cuda.is_available():
+        return torch.device("cuda")
+    if requested in ("auto", "mps") and getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+def resolve_class_weights(cfg, device: torch.device):
+    """Config-driven, opt-in class weighting for the loss.
+
+    cfg["train"]["class_weights"] may be:
+      - absent / null (default): no weighting, identical behavior to before
+        this option existed.
+      - "auto": inverse-frequency weights computed from the train split's
+        label counts (sklearn "balanced" formula: n_samples / (n_classes *
+        count_c)).
+      - a 2-element list [w0, w1]: used directly, e.g. to upweight class 1
+        ("removed") beyond what frequency-balancing alone would give.
+    """
+    spec = cfg["train"].get("class_weights")
+    if spec is None:
+        return None
+
+    if spec == "auto":
+        train_csv = Path(cfg["data"]["splits_dir"]) / "train.csv"
+        counts = pd.read_csv(train_csv)["label"].value_counts().sort_index()
+        n = counts.sum()
+        weights = [n / (len(counts) * c) for c in counts]
+        return torch.tensor(weights, dtype=torch.float32, device=device)
+
+    if isinstance(spec, (list, tuple)) and len(spec) == 2:
+        return torch.tensor(list(spec), dtype=torch.float32, device=device)
+
+    raise ValueError(f"Unrecognized train.class_weights value: {spec!r}")
+
+
+def train_one_epoch(model, loader, optimizer, criterion, device, scaler, grad_clip, use_amp, grad_accum_steps=1):
+    """grad_accum_steps > 1 accumulates gradients over that many micro-batches
+    before each optimizer.step(), simulating a larger effective batch size
+    (physical_batch_size * grad_accum_steps) at the physical batch's memory
+    footprint. Each micro-batch's loss is divided by grad_accum_steps before
+    backward() so the accumulated gradient approximates the true mean-loss
+    gradient over the full effective batch, not a sum over it."""
     model.train()
     total_loss = 0.0
     correct = 0
     total = 0
+    num_batches = len(loader)
 
-    for imgs, labels in tqdm(loader, desc="Train", leave=False):
+    optimizer.zero_grad()
+    for i, (imgs, labels) in enumerate(tqdm(loader, desc="Train", leave=False)):
         imgs, labels = imgs.to(device), labels.to(device)
-        optimizer.zero_grad()
+        is_accum_boundary = ((i + 1) % grad_accum_steps == 0) or (i + 1 == num_batches)
 
         if use_amp:
             with torch.amp.autocast("cuda"):
                 logits = model(imgs)
                 loss = criterion(logits, labels)
-            scaler.scale(loss).backward()
-            if grad_clip:
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-            scaler.step(optimizer)
-            scaler.update()
+            scaler.scale(loss / grad_accum_steps).backward()
+            if is_accum_boundary:
+                if grad_clip:
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
         else:
             logits = model(imgs)
             loss = criterion(logits, labels)
-            loss.backward()
-            if grad_clip:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-            optimizer.step()
+            (loss / grad_accum_steps).backward()
+            if is_accum_boundary:
+                if grad_clip:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+                optimizer.step()
+                optimizer.zero_grad()
 
         total_loss += loss.item() * imgs.size(0)
         correct += (logits.argmax(1) == labels).sum().item()
@@ -85,14 +140,23 @@ def evaluate(model, loader, criterion, device, use_amp):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--seed", type=int, default=None,
+                         help="Override cfg['data']['seed']. When set, save_dir "
+                              "and log_dir get a _seed{N} suffix so multi-seed "
+                              "runs don't clobber each other's checkpoints/logs.")
     args = parser.parse_args()
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
+    if args.seed is not None:
+        cfg["data"]["seed"] = args.seed
+        cfg["train"]["save_dir"] = f"{cfg['train']['save_dir']}_seed{args.seed}"
+        cfg["train"]["log_dir"] = f"{cfg['train']['log_dir']}_seed{args.seed}"
+
     set_seed(cfg["data"]["seed"])
 
-    device = torch.device("cuda" if torch.cuda.is_available() and cfg["train"]["device"] != "cpu" else "cpu")
+    device = resolve_device(cfg["train"]["device"])
 
     log_dir = Path(cfg["train"]["log_dir"])
     logger = setup_logging(log_dir, "train")
@@ -112,10 +176,18 @@ def main():
 
     optimizer = AdamW(model.parameters(), lr=cfg["train"]["lr"], weight_decay=cfg["train"]["weight_decay"])
     scheduler = CosineAnnealingLR(optimizer, T_max=cfg["train"]["epochs"])
-    criterion = nn.CrossEntropyLoss()
+    class_weights = resolve_class_weights(cfg, device)
+    if class_weights is not None:
+        logger.info(f"Class weights: {class_weights.tolist()}")
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
     use_amp = cfg["train"]["mixed_precision"] and device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
+
+    grad_accum_steps = cfg["train"].get("grad_accum_steps", 1)
+    if grad_accum_steps > 1:
+        effective_batch = cfg["train"]["batch_size"] * grad_accum_steps
+        logger.info(f"Grad accumulation: {grad_accum_steps} steps -> effective batch size {effective_batch}")
 
     best_val_acc = 0.0
     patience = 0
@@ -124,7 +196,7 @@ def main():
 
     for epoch in range(1, cfg["train"]["epochs"] + 1):
         train_loss, train_acc = train_one_epoch(
-            model, train_dl, optimizer, criterion, device, scaler, cfg["train"]["grad_clip"], use_amp
+            model, train_dl, optimizer, criterion, device, scaler, cfg["train"]["grad_clip"], use_amp, grad_accum_steps
         )
         val_loss, val_acc, _, _ = evaluate(model, val_dl, criterion, device, use_amp)
         scheduler.step()

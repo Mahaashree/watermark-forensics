@@ -1,0 +1,14 @@
+{
+  "task": "task1_nonwatermarked_degradation_control",
+  "config": "configs/v2_accum_long.yaml",
+  "checkpoint": "checkpoints_v2_accum_long/best_model.pt",
+  "csv": "data/splits_v2/test_task1_control.csv",
+  "auroc": 0.5712203248646397,
+  "n_samples": 196,
+  "n_removed": 98,
+  "n_control": 98,
+  "removed_mean_prob": 0.5626962780952454,
+  "removed_std_prob": 0.05615339055657387,
+  "control_mean_prob": 0.5449823141098022,
+  "control_std_prob": 0.04781849682331085
+}

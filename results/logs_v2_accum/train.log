@@ -1,0 +1,13 @@
+2026-09-21 11:53:19,839 - INFO - Device: mps
+2026-09-21 11:53:19,839 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_v2', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 2, 'dropout': 0.1}, 'train': {'batch_size': 8, 'grad_accum_steps': 2, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'save_dir': 'checkpoints_v2_accum', 'log_dir': 'results/logs_v2_accum'}, 'eval': {'metrics': ['accuracy', 'auroc', 'precision', 'recall', 'f1'], 'save_dir': 'results/v2_accum'}}
+2026-09-21 11:53:21,467 - INFO - Model: convnext_tiny, params: 27,821,666
+2026-09-21 11:53:21,468 - INFO - Grad accumulation: 2 steps -> effective batch size 16
+2026-09-21 12:01:50,121 - INFO - Epoch 001 | Train: 0.8197/0.5250 | Val: 0.8683/0.5467
+2026-09-21 12:01:51,418 - INFO -   -> New best: 0.5467
+2026-09-21 12:10:36,069 - INFO - Epoch 002 | Train: 0.8388/0.5017 | Val: 0.7270/0.4533
+2026-09-21 12:19:38,833 - INFO - Epoch 003 | Train: 0.7102/0.5283 | Val: 0.7020/0.4733
+2026-09-21 12:28:47,250 - INFO - Epoch 004 | Train: 0.7038/0.5500 | Val: 0.6714/0.5267
+2026-09-21 12:38:34,071 - INFO - Epoch 005 | Train: 0.7136/0.5400 | Val: 0.7237/0.5467
+2026-09-21 12:47:44,642 - INFO - Epoch 006 | Train: 0.6783/0.5767 | Val: 0.9763/0.4667
+2026-09-21 12:47:44,643 - INFO - Early stopping at epoch 6
+2026-09-21 12:47:44,644 - INFO - Training complete. Best val acc: 0.5467

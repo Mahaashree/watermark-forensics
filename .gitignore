@@ -4,6 +4,11 @@ data/watermarked/
 data/removed/
 data/edited/
 data/splits/
+data/baseline/
+data/watermarked_full/
+data/removed_full/
+data/watermarked_v2/
+data/removed_v2/
 
 # Checkpoints & results
 checkpoints/
