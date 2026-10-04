@@ -1,0 +1,29 @@
+{
+  "split": "test",
+  "n_classes": 3,
+  "accuracy": 0.8166666666666667,
+  "auroc_macro_ovr": 0.9136083257501024,
+  "precision_macro": 0.7433108655303567,
+  "recall_macro": 0.727961653308188,
+  "f1_macro": 0.7333206009676599,
+  "confusion_matrix": [
+    [
+      21,
+      18,
+      10
+    ],
+    [
+      15,
+      81,
+      5
+    ],
+    [
+      3,
+      4,
+      143
+    ]
+  ],
+  "note": "Multiclass (>2) metrics use macro-averaging and one-vs-rest AUROC; per-class low-FPR TPR is not computed here.",
+  "loss": 0.5442978409926097,
+  "n_samples": 300
+}

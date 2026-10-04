@@ -91,52 +91,77 @@ def main():
 
             total_loss += loss.item() * imgs.size(0)
             total += imgs.size(0)
-            all_probs.append(torch.softmax(logits, dim=1)[:, 1].cpu())
+            all_probs.append(torch.softmax(logits, dim=1).cpu())
             all_labels.append(labels.cpu())
 
-    probs = torch.cat(all_probs).numpy()
+    probs_full = torch.cat(all_probs).numpy()
     labels = torch.cat(all_labels).numpy()
-    preds = (probs > 0.5).astype(int)
+    n_classes = probs_full.shape[1]
 
-    acc = accuracy_score(labels, preds)
-    auroc = roc_auc_score(labels, probs)
-    prec, rec, f1, _ = precision_recall_fscore_support(labels, preds, average="binary")
-    cm = confusion_matrix(labels, preds).tolist()
-    n_neg = int((labels == 0).sum())
+    if n_classes == 2:
+        probs = probs_full[:, 1]
+        preds = (probs > 0.5).astype(int)
 
-    fpr_near_1pct, tpr_near_1pct = tpr_at_fpr(labels, probs, 0.01)
-    fpr_near_01pct, tpr_near_01pct = tpr_at_fpr(labels, probs, 0.001)
+        acc = accuracy_score(labels, preds)
+        auroc = roc_auc_score(labels, probs)
+        prec, rec, f1, _ = precision_recall_fscore_support(labels, preds, average="binary")
+        cm = confusion_matrix(labels, preds).tolist()
+        n_neg = int((labels == 0).sum())
 
-    results = {
-        "split": args.split,
-        "accuracy": acc,
-        "auroc": auroc,
-        "precision": prec,
-        "recall": rec,
-        "f1": f1,
-        "confusion_matrix": cm,
-        "tpr_near_1pct_fpr": {
-            "label": f"TPR@{fpr_near_1pct:.2%}FPR (nearest achievable to 1%)",
-            "target_fpr": 0.01,
-            "achieved_fpr": fpr_near_1pct,
-            "tpr": tpr_near_1pct,
-        },
-        "tpr_near_0.1pct_fpr": {
-            "label": f"TPR@{fpr_near_01pct:.2%}FPR (nearest achievable to 0.1%)",
-            "target_fpr": 0.001,
-            "achieved_fpr": fpr_near_01pct,
-            "tpr": tpr_near_01pct,
-        },
-        "n_negative_present_class": n_neg,
-        "tpr_low_fpr_note": (
-            f"FPR resolution is 1/n_negative = 1/{n_neg} ~= {1/n_neg:.2%} per ROC step. "
-            "TPR@low-FPR is reported at the nearest achievable FPR >= the requested target, "
-            "not interpolated between the two neighboring points, since interpolating on "
-            f"{n_neg} negatives would imply a precision this sample size doesn't support."
-        ),
-        "loss": total_loss / total,
-        "n_samples": int(total)
-    }
+        fpr_near_1pct, tpr_near_1pct = tpr_at_fpr(labels, probs, 0.01)
+        fpr_near_01pct, tpr_near_01pct = tpr_at_fpr(labels, probs, 0.001)
+
+        results = {
+            "split": args.split,
+            "accuracy": acc,
+            "auroc": auroc,
+            "precision": prec,
+            "recall": rec,
+            "f1": f1,
+            "confusion_matrix": cm,
+            "tpr_near_1pct_fpr": {
+                "label": f"TPR@{fpr_near_1pct:.2%}FPR (nearest achievable to 1%)",
+                "target_fpr": 0.01,
+                "achieved_fpr": fpr_near_1pct,
+                "tpr": tpr_near_1pct,
+            },
+            "tpr_near_0.1pct_fpr": {
+                "label": f"TPR@{fpr_near_01pct:.2%}FPR (nearest achievable to 0.1%)",
+                "target_fpr": 0.001,
+                "achieved_fpr": fpr_near_01pct,
+                "tpr": tpr_near_01pct,
+            },
+            "n_negative_present_class": n_neg,
+            "tpr_low_fpr_note": (
+                f"FPR resolution is 1/n_negative = 1/{n_neg} ~= {1/n_neg:.2%} per ROC step. "
+                "TPR@low-FPR is reported at the nearest achievable FPR >= the requested target, "
+                "not interpolated between the two neighboring points, since interpolating on "
+                f"{n_neg} negatives would imply a precision this sample size doesn't support."
+            ),
+            "loss": total_loss / total,
+            "n_samples": int(total)
+        }
+    else:
+        preds = probs_full.argmax(axis=1)
+
+        acc = accuracy_score(labels, preds)
+        auroc = roc_auc_score(labels, probs_full, multi_class="ovr", average="macro")
+        prec, rec, f1, _ = precision_recall_fscore_support(labels, preds, average="macro")
+        cm = confusion_matrix(labels, preds).tolist()
+
+        results = {
+            "split": args.split,
+            "n_classes": n_classes,
+            "accuracy": acc,
+            "auroc_macro_ovr": auroc,
+            "precision_macro": prec,
+            "recall_macro": rec,
+            "f1_macro": f1,
+            "confusion_matrix": cm,
+            "note": "Multiclass (>2) metrics use macro-averaging and one-vs-rest AUROC; per-class low-FPR TPR is not computed here.",
+            "loss": total_loss / total,
+            "n_samples": int(total)
+        }
 
     print(json.dumps(results, indent=2))
 

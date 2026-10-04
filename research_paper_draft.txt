@@ -6,6 +6,19 @@ Status: Work in progress. This draft covers all completed work through the
 Gap 1 real-tool evaluation. Gap 1 is reported as OPEN/UNRESOLVED (see
 Section 6) -- this is a finding of the work, not a placeholder.
 
+Update (2026-10-04): the checkpoint underlying this draft's original
+headline number (checkpoints_v2_accum_long/best_model.pt, trained on MPS)
+was lost from disk and had to be retrained to prepare this draft for
+submission. A 3-seed retrain on different hardware (CUDA, not MPS) gives a
+materially different, generally stronger result (AUROC 0.763 +/- 0.012
+vs. the original single run's 0.662) and could not reproduce the original
+run's specific training trajectory. This is documented as a new finding,
+not silently patched over -- see Section 5.3.1 for the full account and
+Section 5.8 for a from-scratch baseline comparison run on the same
+retrained checkpoint's data. Sections 5.2 and 5.4 are left as the
+historical record of analyses performed on the original MPS-trained run
+and are flagged inline where they are superseded.
+
 
 ABSTRACT
 
@@ -21,20 +34,24 @@ attacked by two structurally different families: a self-implemented
 distortion-optimization attack (inspired by, but independent from, the
 UnMarker paper) and a diffusion-autoencoder regeneration attack (SANA-VAE /
 DC-AE). We isolate and rule out a batch-size training confound via matched
-optimizer-step-count gradient accumulation, and show that a ~0.21 AUROC
-drop from an earlier single-attack baseline (0.888 -> 0.662) is attributable
-to attack-family diversity, not the confound. We report full standalone
-metrics for the best converged model, including a previously undocumented
-bias (69% of intact watermarks are misclassified as "removed") and a
-low-false-positive operating point reported honestly at the nearest
-achievable false-positive rate given a 52-negative test set, rather than
+optimizer-step-count gradient accumulation, and find an AUROC gap from an
+earlier single-attack baseline (0.888 vs. a 3-seed mean of 0.763 +/- 0.012
+on retrain, originally measured as a single-run 0.662 before a hardware
+change forced a retrain -- Section 5.3.1) attributable at least in part to
+attack-family diversity, not the batch-size confound. We report full
+standalone metrics for the retrained model across 3 seeds, including a
+replicated bias toward misclassifying intact watermarks as "removed," and
+a low-false-positive operating point reported honestly at the nearest
+achievable false-positive rate given a 50-negative test set, rather than
 interpolated. Finally, we attempt Gap 1 -- evaluating this classifier
 against real, publicly released watermark-removal tools rather than our own
 attack-family reimplementations -- and report that this remains unresolved:
 every candidate tool investigated (DiffPure, the released UnMarker tool,
 remove-ai-watermarks, Synthid-Bypass) was disqualified or impractical under
-this project's CPU/MPS-only compute constraints. We treat this as an open,
-honestly-reported limitation rather than a completed result.
+this project's compute constraints at the time (CPU/MPS-only). A later
+renewed attempt on since-acquired CUDA hardware was started but stalled
+mid-download and remains incomplete (Section 6.4). We treat Gap 1 as an
+open, honestly-reported limitation rather than a completed result.
 
 
 1. INTRODUCTION
@@ -68,6 +85,75 @@ support a clean narrative. Two such results anchor this draft: a declining
 control-task AUROC trend that resists a tidy explanation (Section 5.5), and
 Gap 1 itself, which produced zero real-tool evidence despite a genuine
 attempt (Section 6).
+
+
+1.1 RELATED WORK
+
+Three bodies of prior work bound this project: (i) invisible watermark
+embedding schemes, including the specific scheme we build on; (ii) attacks
+that remove or forge such watermarks; and (iii) forensic classifiers for
+AI-generated/edited image detection, whose train/test generalization-gap
+methodology this project's Gap 1 is a direct instance of.
+
+Watermark embedding. The DWT-DCT-SVD embedding scheme used throughout this
+project (Section 2) follows the hybrid wavelet/singular-value approach
+introduced by Lai and Tsai (2010), who showed that perturbing a block's
+dominant singular value after a DWT+DCT decomposition survives common
+signal-processing operations without visible distortion; our use of this
+scheme is a direct, non-learned instantiation of that approach rather than
+a novel contribution in itself. More recent work roots watermarks directly
+in a generative model rather than post-hoc into its output: Fernandez et
+al.'s Stable Signature (ICCV 2023) fine-tunes a latent diffusion decoder so
+every image it generates natively carries a recoverable signature, and Wen
+et al.'s Tree-Ring Watermarks (NeurIPS 2023) embeds a pattern into the
+initial diffusion sampling noise itself. Neither applies directly to our
+setting -- both assume control over the generative model at image-creation
+time, whereas our watermark is embedded post-hoc into existing photographs
+-- but they represent the direction the field is moving toward partly
+because post-hoc schemes like ours are more vulnerable to exactly the
+regeneration-style attacks this project studies.
+
+Watermark removal attacks. Zhao et al. (2023/NeurIPS 2024) formalize
+regeneration attacks -- noising an image's embedding and reconstructing it
+through a generative model -- as a general-purpose, largely
+watermark-agnostic removal strategy, and report that this family
+outperforms earlier geometric/signal-processing attacks across four
+pixel-level watermarking schemes; our SANA-VAE / DC-AE attack (Section 3.1)
+is an independent instantiation of this same regeneration-attack family
+rather than a reimplementation of their specific pipeline. An et al.'s
+WAVES benchmark (ICML 2024) standardizes stress-testing of watermark
+robustness across traditional, adversarial, and regeneration-style attacks
+and is the closest prior work, methodologically, to this project's
+attack-family comparison in Section 5.4 -- though WAVES scores watermark
+survival directly via the embedding scheme's own detector, whereas we
+additionally train and evaluate a learned forensic classifier on top of
+that signal. UnMarker (Kassis and Hengartner, IEEE S&P 2025) and WMForger
+(Soucek et al., NeurIPS 2025) are discussed in Section 3 as the direct
+basis for, respectively, our distortion-optimization attack and the
+forging-attack family we set aside as out of scope.
+
+Forensic detection of AI-generated/edited images. This project's classifier
+(Section 4) and Gap 1 (Section 6) sit inside a longer-running forensics
+line distinguishing "real" from "generated/manipulated" images rather than
+verifying a specific watermark. Wang et al. (CVPR 2020) showed that a
+classifier trained on one GAN family (ProGAN) can generalize surprisingly
+well to unseen GAN architectures under the right augmentation choices -- an
+early positive result for exactly the kind of cross-family generalization
+this project's Gap 1 tests, but for GANs rather than watermark-removal
+tools. Corvi et al. (ICASSP 2023) extended this line to diffusion-generated
+images, finding diffusion models leave distinct, detectable spectral
+fingerprints, but that detectors trained on GAN artifacts do not
+automatically transfer to them. Ojha et al. (CVPR 2023) go further, showing
+that classifiers explicitly trained for real-vs-fake classification
+generalize poorly to generative-model families unseen during training, and
+propose using a frozen, non-finetuned vision-language feature space instead
+of a trained classifier to close that gap. Our Gap 1 is this same
+cross-family generalization question, posed one level removed: not "was
+this image generated by a model unseen during training" but "was this
+image's watermark removed by a tool unseen during training" -- and Ojha et
+al.'s negative result for the analogous generation-detection problem is a
+reason to treat our own inability to close Gap 1 (Section 6) as plausible
+rather than as a project-specific failure.
 
 
 2. WATERMARKING SCHEME
@@ -247,6 +333,11 @@ diverse, harder attack mix is.
 
 5.3 Standalone evaluation of the converged model (full metrics)
 
+[Historical record of the original MPS-trained run. This checkpoint was
+subsequently lost from disk; a 2026-10-04 CUDA retrain could not reproduce
+these exact figures -- see Section 5.3.1 for the current, 3-seed result
+and for what is and is not still valid about the analysis below.]
+
 Full breakdown for checkpoints_v2_accum_long/best_model.pt on the 150-image
 test set (results/best_model_report/):
 
@@ -283,6 +374,86 @@ confirming a removal occurred than at confirming a watermark is still
 intact -- an asymmetry any downstream use of this classifier (e.g. as a
 removal-detection alarm) needs to account for explicitly, not one that
 should be summarized away by the pooled accuracy/AUROC figures.
+
+5.3.1 Update (2026-10-04): 3-seed CUDA retrain, and a hardware-dependent
+      reproducibility finding
+
+Preparing this draft for submission required reloading
+checkpoints_v2_accum_long/best_model.pt, which turned out not to exist on
+disk (gitignored, and not regenerated since the 5.3 run). Retraining from
+the committed config (configs/v2_accum_long.yaml, seed=42, otherwise
+unchanged) on this machine's CUDA GPU (RTX 3050) did not reproduce the 5.3
+numbers. Investigating why surfaced two compounding factors rather than a
+single bug:
+
+  (a) results/v2_accum_long/CHECKPOINT_REFERENCE.md records that the
+      original 5.3 run was trained on MPS (Apple Silicon), not CUDA, and
+      already flagged -- before this issue was found -- that "exact
+      byte-for-byte reproduction is not guaranteed" across backends.
+  (b) The watermark is deliberately weak (alpha=0.02, Section 5.6) with
+      many images sitting close to the verify() correlation threshold
+      (0.5); small cross-backend floating-point differences in the
+      DWT/DCT/SVD embedding and the DC-AE regeneration attack (both
+      ordinary floating-point numerics, not stochastic sampling --
+      confirmed by reading src/attacks/diffusion_regen.py, which uses
+      @torch.no_grad() deterministic encode/decode with no random
+      generator) are enough to flip some of those borderline verify()
+      outcomes, changing which images land in which class when the
+      dataset-build step is rerun on different hardware.
+
+The practical result: data/watermarked_v2 and data/removed_v2 on disk
+today (298 present / 602 removed) do not match the 399/501 split reported
+in Section 3.2, because the dataset itself was rebuilt on this machine at
+some point after the original MPS run. This is reported as a genuine,
+previously-undocumented reproducibility limitation of this pipeline, not
+patched over: a "fixed seed" in scripts/build_verified_dataset.py
+guarantees the same attack-family *assignment* per image across reruns,
+but not the same *verify() outcome* for every image, when the rerun
+happens on different numerical hardware and the embedding is this close to
+its detection threshold. We did not attempt to fix this within the current
+scope (see Section 8); doing so would likely require either a stronger,
+less borderline watermark (larger alpha) or deterministic-mode flags across
+every numeric library in the pipeline, neither of which is a small change.
+
+Given this, we adopt the current, CUDA-trained, verification-labeled
+dataset (data/splits_v2 as it exists on disk at submission time; zero
+group leakage re-verified, leak_check_report.md) as the dataset of record
+going forward, and report a 3-seed retrain on it rather than a single run,
+directly addressing the single-seed-only limitation flagged in this
+project's own workplan:
+
+  Seed    Accuracy   AUROC    Precision   Recall   F1
+  42      0.7333     0.7704   0.7632      0.8700   0.8131
+  1       0.7600     0.7694   0.8137      0.8300   0.8218
+  2       0.6933     0.7498   0.7812      0.7500   0.7653
+  Mean    0.7289     0.7632   0.7860      0.8167   0.8001
+  Std     0.0336     0.0116   0.0256      0.0611   0.0304
+
+(scripts/aggregate_seed_metrics.py; per-seed checkpoints
+checkpoints_v2_accum_long{,_seed1,_seed2}/best_model.pt; test set n=150,
+50 negative / 100 positive on the current splits_v2.)
+
+AUROC is notably stable across seeds (std 0.012) despite the hardware/
+dataset discontinuity from the original 5.3 run -- the 3-seed mean (0.763)
+is higher than the original single-run figure (0.662), not lower, so this
+update does not weaken the paper's core claim that the classifier carries
+real signal (Section 5.8 baseline comparison, re-run against this same
+current dataset, still shows a large gap over non-learned and
+non-finetuned baselines). The present-class miss-rate bias flagged in the
+original 5.3 (intact watermarks misclassified as "removed") replicates in
+direction across all 3 seeds but varies in magnitude (seed 42: 27/50 = 54%
+misclassified; seed 1: 19/50 = 38%; seed 2: 21/50 = 42%) -- consistently
+present, not a stable 69% figure specific to the lost checkpoint.
+
+Sections 5.2 and 5.4 below report analyses performed on the original
+MPS-trained run and its data; they remain internally valid as comparisons
+between runs made on that same original hardware/dataset, but their
+absolute AUROC figures (0.662, 0.674, and the per-family numbers in 5.4)
+should not be read as hardware-independent constants in light of this
+finding. We have not re-run the batch-size-confound isolation (5.2) or the
+per-attack-family breakdown (5.4) on the current CUDA dataset; doing so is
+listed in Section 8.
+
 
 5.4 Per-attack-family breakdown
 
@@ -344,6 +515,85 @@ embedding rather than attack efficacy, a source of label noise independent
 of attack strength that is not currently quantified across the full
 corpus.
 
+5.7 Three-class extension (Present / Removed / Original)
+
+A separate model (checkpoints_3class/best_model.pt, configs/3class.yaml)
+was trained on a three-way extension of the same task, adding a third
+"Original" class (pristine, never-watermarked DIV2K images) alongside
+Present and Removed. Pooled macro-averaged metrics on the 300-image test
+split: accuracy 0.8167, AUROC (macro, one-vs-rest) 0.9136.
+
+These pooled numbers are not directly comparable to Section 5.3's
+present-vs-removed result and should not be read as an improvement over
+it. The confusion matrix shows the Original class is classified at 95.3%
+(143/150) -- pristine, unprocessed images are trivially separable from
+anything that has been through the watermark-embed-and-attack pipeline,
+regardless of whether a watermark survived. With Original samples making
+up half the 300-image test set, this easy third bucket inflates the
+pooled macro accuracy and AUROC well above what the model achieves on the
+actual forensic question.
+
+Isolating the present-vs-removed subset (150 samples: 49 present, 101
+removed) and renormalizing each prediction's score as P(removed) /
+(P(present) + P(removed)) to exclude the Original probability mass gives:
+accuracy 0.7467, AUROC 0.7929, precision 0.8000, recall 0.8317, F1
+0.8155 (confusion matrix [[28, 21], [17, 84]], rows/cols =
+true/pred present, removed). This was the honest like-for-like comparison
+to Section 5.3's original 0.6733 accuracy / 0.6615 AUROC, on a different
+(and not directly attack-matched) dataset variant, not a pooled-metric
+artifact. Note (2026-10-04): Section 5.3's headline has since been
+updated to a 3-seed 0.7289/0.7632 (Section 5.3.1), which narrows this
+comparison's apparent improvement considerably; this 3-class model was not
+re-run on the current dataset, so the two numbers are not freshly
+comparable -- re-running it is listed in Section 8.
+
+
+5.8 Baseline comparison (non-finetuned and non-learned baselines)
+
+[Run 2026-10-04 against the current, CUDA-era data/splits_v2 -- the same
+dataset underlying the 5.3.1 retrain, not the original/lost 5.3 run. The
+comparison below is against the 5.3.1 3-seed headline for this reason.]
+
+To check that the ConvNeXt-Tiny headline result (Section 5.3.1: 3-seed
+mean accuracy 0.7289, AUROC 0.7632) reflects a real, learned forensic
+signal rather than being achievable by a trivial classifier or a
+hand-crafted image-quality heuristic, we ran three baselines on the
+identical data/splits_v2 test set (experiments/exp1_baseline_repro/
+baseline_check.py; seed-42 checkpoint used for the ConvNeXt-Tiny row
+since baseline_check.py is a single-run comparator, not seed-averaged):
+
+  Baseline                          Test accuracy   Test AUROC
+  2-layer CNN (trained)             0.6667          0.4420
+  Laplacian-variance threshold      0.6600          0.5204
+  JPEG-blockiness threshold         0.6600          0.5876
+  ConvNeXt-Tiny (headline, seed 42) 0.7333          0.7704
+  ConvNeXt-Tiny (headline, 3-seed mean, 5.3.1) --    0.7632
+
+The 2-layer CNN (Option A: two conv+pool blocks, trained with the same
+AdamW recipe and early stopping as the headline model) collapsed to a
+constant majority-class prediction after epoch 1 -- its val accuracy
+(0.6733) exactly matches the val split's majority-class rate, and it never
+moved for the remaining 5 epochs before early stopping triggered. Its test
+AUROC of 0.4420 is below 0.5, meaning its soft probability output
+*anti-ranks* relative to the true labels; this is a degenerate baseline,
+not a competitive one, and is reported as such rather than smoothed over.
+The two non-learned heuristics (a single fixed threshold on Laplacian-filter
+variance or JPEG block-boundary strength, swept to find each metric's own
+best-case threshold on each split) do slightly better than chance
+(AUROC 0.52-0.59) but far short of the ConvNeXt-Tiny result, and their
+headline "accuracy" figures are inflated by the same majority-class
+baseline the 2-layer CNN collapsed to (0.66-0.67 accuracy is achievable by
+always predicting "removed" on this 50/100-skewed test set; AUROC, not
+accuracy, is the metric that actually distinguishes these baselines from
+the headline model here).
+
+This comparison supports reading the ConvNeXt-Tiny headline as a real,
+non-trivial forensic signal -- it is not matched by a smaller trained
+network under an identical training recipe, nor by two standard low-level
+image-quality heuristics -- while also making explicit that none of these
+baselines, including the headline model, clears a high bar in absolute
+terms on this task.
+
 
 6. GAP 1: REAL-WORLD TOOL EVALUATION (UNRESOLVED)
 
@@ -397,21 +647,36 @@ setup cost relative to the remaining evaluation scope and time available.
 6.4 Status
 
 Gap 1 remains unresolved: zero real-world removal-tool evidence has been
-obtained to date. All four candidates investigated across this project's
-compute constraints (CPU/MPS-only, no CUDA GPU) were either hard-blocked
-by a GPU-only code path, structurally coupled to a different watermark
-scheme than ours, or impractically large/complex to stand up within scope.
-This is reported here as the actual state of the work, not smoothed into
-an implied completion. The TPR@low-FPR reporting fix in Section 5.3 was
-added to src/evaluate.py in anticipation of eventually scoring a real-tool-
-attacked subset, but no such subset currently exists.
+obtained to date. All four candidates investigated above were evaluated on
+this project's compute constraints at the time (CPU/MPS-only, no CUDA GPU)
+and were either hard-blocked by a GPU-only code path, structurally coupled
+to a different watermark scheme than ours, or impractically large/complex
+to stand up within scope. This is reported here as the actual state of the
+work, not smoothed into an implied completion. The TPR@low-FPR reporting
+fix in Section 5.3 was added to src/evaluate.py in anticipation of
+eventually scoring a real-tool-attacked subset, but no such subset
+currently exists.
+
+Update (2026-10-04): this project has since moved to a CUDA-capable
+machine (RTX 3050, 6GB), which removes the single blocker behind the
+remove-ai-watermarks diffusion-regeneration disqualification (6.2a) and
+reopens DiffPure and the released UnMarker tool as candidates whose
+earlier disqualification (6.1, 6.2) was specifically a CPU/MPS-only
+finding. A renewed attempt at remove-ai-watermarks' Qwen-based path was
+started but not completed -- it stalled mid-download (the model's
+transformer weights ship as nine separate ~5GB shards) and has not yet
+been resumed to a result. Gap 1 is therefore still unresolved, but the
+reason has changed: it is now a time/bandwidth constraint on this attempt,
+not a hard compute-capability block, and resuming it is lower-effort than
+when Section 6.1-6.3 were written.
 
 
 7. LIMITATIONS
 
-  - Test set size (n=150, 52 negatives) limits the resolution of low-FPR
-    operating-point claims and per-attack-family metrics (Section 5.3,
-    5.4); several reported numbers are explicitly flagged as high-variance
+  - Test set size (n=150; 52 negatives on the original Section 5.3 run,
+    50 on the current Section 5.3.1 dataset) limits the resolution of
+    low-FPR operating-point claims and per-attack-family metrics (Section
+    5.3, 5.4); several reported numbers are explicitly flagged as high-variance
     rather than presented as precise.
   - Gap 1 is unresolved (Section 6): all reported classifier skill is
     measured only against the project's own attack-family reimplementations,
@@ -422,17 +687,38 @@ attacked subset, but no such subset currently exists.
   - CtrlRegen (Section 3.3), while technically integrated, ships without a
     LICENSE file in its source repository, which we treat as a
     reproducibility/redistribution flag rather than resolving it here.
-  - All compute in this project is CPU/MPS-only; several disqualifications
-    in Section 6 are a direct function of that constraint and might not
-    apply to a lab with GPU access.
+  - Compute in this project was CPU/MPS-only through Section 6's original
+    writing; several disqualifications there are a direct function of that
+    constraint. A CUDA machine has since become available (Section 6.4
+    update) but the renewed Gap 1 attempt this enables is not yet complete.
+  - The dataset-build pipeline (scripts/build_verified_dataset.py) is not
+    reproducible across hardware backends despite its --seed flag: Section
+    5.3.1 found that moving from MPS to CUDA changed which borderline
+    images verify as watermark-present vs. removed, changing the realized
+    class balance and downstream headline metrics. Numbers in Sections 5.2
+    and 5.4 are specific to the original MPS run and have not been
+    re-verified on CUDA.
 
 
 8. FUTURE WORK
 
-  - Continue Gap 1 with GPU access: DiffPure, the released UnMarker tool,
+  - Continue Gap 1 now that CUDA is available (this project moved to a
+    CUDA-capable machine, RTX 3050 6GB, after Section 6 was written on a
+    CPU/MPS-only one): DiffPure, the released UnMarker tool,
     remove-ai-watermarks' diffusion-regeneration path, and Synthid-Bypass
-    all become tractable candidates once CUDA is available, removing the
-    single largest blocker identified in Section 6.
+    should be re-attempted against this hardware rather than left
+    disqualified on constraints that no longer apply.
+  - Re-run the batch-size-confound isolation (5.2), per-attack-family
+    breakdown (5.4), and 3-class extension (5.7) on the current
+    CUDA-trained dataset/checkpoints, since Section 5.3.1 found those
+    sections' absolute figures are specific to the original (now
+    unreproducible) MPS run.
+  - Fix the cross-backend dataset-build reproducibility gap identified in
+    Section 5.3.1 -- either by strengthening the watermark (larger alpha,
+    away from the borderline-threshold regime) or by enforcing
+    deterministic-mode numerics across the embedding and regeneration-attack
+    code paths -- before relying on scripts/build_verified_dataset.py's
+    --seed flag as a guarantee of a reproducible dataset across machines.
   - Expand the test set (currently n=150) to tighten the low-FPR operating
     points and per-attack-family confidence intervals flagged in Sections
     5.3-5.4.
@@ -446,7 +732,9 @@ attacked subset, but no such subset currently exists.
     release of derived artifacts.
 
 
-REFERENCES (tools and papers evaluated in this project)
+REFERENCES
+
+Tools and attack families evaluated/implemented in this project (Section 3):
 
   Nie, W. et al. "Diffusion Models for Adversarial Purification." ICML 2022.
     (DiffPure)
@@ -456,6 +744,34 @@ REFERENCES (tools and papers evaluated in this project)
   Soucek, T. et al. NeurIPS 2025 (Spotlight). (WMForger)
   Kassis, A. and Hengartner, U. "UnMarker: A Universal Attack on Defensive
     Image Watermarking." IEEE S&P 2025.
+
+Related work (Section 1.1) -- watermark embedding, removal, and forensic
+detection literature situating this project:
+
+  Lai, C.-C. and Tsai, C.-C. "Digital Image Watermarking Using Discrete
+    Wavelet Transform and Singular Value Decomposition." IEEE Transactions
+    on Instrumentation and Measurement, 59(11):3060-3063, 2010.
+  Fernandez, P., Couairon, G., Jegou, H., Douze, M., and Furon, T. "The
+    Stable Signature: Rooting Watermarks in Latent Diffusion Models." ICCV
+    2023, pp. 22466-22477.
+  Wen, Y., Kirchenbauer, J., Geiping, J., and Goldstein, T. "Tree-Ring
+    Watermarks: Fingerprints for Diffusion Images that are Invisible and
+    Robust." NeurIPS 2023.
+  Zhao, X., Zhang, K., Su, Z., Vasan, S., Grishchenko, I., Kruegel, C.,
+    Vigna, G., Wang, Y.-X., and Li, L. "Invisible Image Watermarks Are
+    Provably Removable Using Generative AI." arXiv:2306.01953 (2023);
+    NeurIPS 2024.
+  An, B., Ding, M., Rabbani, T., Agrawal, A., Xu, Y., Deng, C., Zhu, S.,
+    Mohamed, A., Wen, Y., Goldstein, T., and Huang, F. "WAVES: Benchmarking
+    the Robustness of Image Watermarks." ICML 2024.
+  Wang, S.-Y., Wang, O., Zhang, R., Owens, A., and Efros, A. A.
+    "CNN-Generated Images Are Surprisingly Easy to Spot... for Now." CVPR
+    2020, pp. 8695-8704.
+  Corvi, R., Cozzolino, D., Zingarini, G., Poggi, G., Nagano, K., and
+    Verdoliva, L. "On the Detection of Synthetic Images Generated by
+    Diffusion Models." ICASSP 2023, pp. 1-5.
+  Ojha, U., Li, Y., and Lee, Y. J. "Towards Universal Fake Image Detectors
+    That Generalize Across Generative Models." CVPR 2023, pp. 24480-24489.
 
 
 ARTIFACTS AND REPRODUCIBILITY
@@ -475,6 +791,8 @@ ARTIFACTS AND REPRODUCIBILITY
                                          (report.md, report.json, figures)
   Per-attack-family analysis          : results/attack_breakdown/ANALYSIS.md
   Qualitative inference demo          : results/inference_demo/
+  Baseline comparison (Section 5.8)   : experiments/exp1_baseline_repro/baseline_check.py,
+                                         experiments/exp1_baseline_repro/baseline_results_v2.json
   Gap 1 tool evaluation log           : phase2_tools_evaluation.md
                                          (section "Gap 1: Real-Tool Evaluation")
   Mechanism / publication figures     : results/figures/, results/figures/mechanism/

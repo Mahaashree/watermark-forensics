@@ -1,168 +1,135 @@
-# How to Run
+# How to Run (updated)
+
+This supersedes the previous version of this file, which was written on a
+different machine/checkout and pointed at data/configs that don't exist in
+this working tree. Everything below reflects what's actually on disk now.
 
 ## Setup done
 
-- Created venv at `.venv` (Python 3.13, via `python -m venv .venv`)
-- Installed project + deps: `pip install -e .`
-- Installed `requests` (used by `scripts/download_div2k.py`, missing from `pyproject.toml`)
-- Torch installed is **CPU-only** (no local GPU detected) — training/eval will be slow. Use Colab T4 for real runs, per README.
-- `src/data/dataset.py` hardened: `__getitem__` now raises a clear `FileNotFoundError` if `cv2.imread` returns `None`, and `create_dataloaders` checks `train.csv`/`val.csv`/`test.csv` exist before building datasets (instead of a raw pandas traceback).
-- `configs/default.yaml` repointed at the one split that's actually usable out of the box (see below) — verified with a live dataloader smoke test (`train batch: torch.Size([4, 3, 224, 224])`, 140/30/30 train/val/test images).
+- `.venv` created (Python 3.13, `python -m venv .venv`), project installed via
+  `pip install -e .`.
+- `torch`/`torchvision` upgraded to **CUDA builds** (`torch==2.6.0+cu124`,
+  `torchvision==0.21.0+cu124`) — plain `pip install torch` on Windows gives a
+  CPU-only build by default, which was the initial state. GPU (RTX 3050) is
+  now used automatically since all configs have `train.device: "auto"`.
+- `timm` installed (was missing from a from-scratch `pip install -e .` in this
+  environment).
 
-## Activate venv
+## Activate venv (PowerShell)
 
-```bash
+```powershell
 cd "C:\final year project\watermark-forensics"
-source .venv/Scripts/activate
+.venv\Scripts\Activate.ps1
 ```
 
-Always run commands from the repo root — configs and data paths are relative to cwd.
+If blocked by execution policy:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
 
-## Important: module invocation
+Always run commands from the repo root.
 
-`README.md` shows `python src/train.py ...` and `python src/evaluate.py ...`. These **fail** with
-`ModuleNotFoundError: No module named 'src'` because both files use absolute imports
-(`from src.utils.seed import ...`). Run them as modules instead:
+## Module invocation
 
-```bash
+Run everything as a module (`python -m ...`), not `python src/train.py ...` —
+the latter fails with `ModuleNotFoundError: No module named 'src'` because
+these files use absolute imports.
+
+## Data on disk (built from scratch this session — none of this was in the git repo; `data/` is gitignored)
+
+- `data/raw/` — **900** images = DIV2K validation (100) + DIV2K train (800),
+  via `python scripts/download_div2k.py --split valid` then `--split train`.
+- `data/watermarked_v2/` — **298** images. Watermark embedded
+  (`alpha=0.02`, `block_size=8`, `dwt_level=2`) and verified *present* after a
+  mild JPEG-80 re-encode. Built via
+  `python -m scripts.build_verified_dataset --raw data/raw --out-present data/watermarked_v2 --out-removed data/removed_v2 --save-quality 80 --alpha 0.02`.
+- `data/removed_v2/` — **602** images from the same command: watermark
+  embedded then attacked, verified *absent* afterward.
+- `data/original_v2/` — **900** images, one per raw source, **never
+  watermarked**, but resized to 224x224 + JPEG-80 re-encoded to match the
+  file format of the other two classes (prevents the classifier from
+  cheating on file-format artifacts instead of real watermark signal). Built
+  via `python -m scripts.build_original_class --raw data/raw --out data/original_v2 --save-quality 80`.
+- `data/splits_v2/` — **2-class** (Present=0 / Removed=1) leak-free,
+  group-aware splits: 600 train / 150 val / 150 test. Built via
+  `python -m src.data.build_splits --watermarked data/watermarked_v2 --removed data/removed_v2 --splits data/splits_v2`.
+- `data/splits_3class/` — **3-class** (Present=0 / Removed=1 / Original=2)
+  leak-free splits: 1200 train / 300 val / 300 test. Built via
+  `python -m src.data.build_splits --watermarked data/watermarked_v2 --removed data/removed_v2 --original data/original_v2 --splits data/splits_3class`.
+
+**Known-bad split dirs — do not use:** `data/splits`, `data/splits_full`,
+`data/splits_mild`, `data/splits_jpeg80`, `data/splits_jpeg80_extreme` all
+carry a `DEPRECATED_LEAKED.md` marker (pre-fix `build_splits.py` leaked
+source images across train/val/test — see `leak_check_report.md`). They're
+also empty in this checkout regardless, since their underlying image dirs
+were never regenerated here.
+
+## Configs
+
+| Config | Classes | Splits dir | Checkpoint dir | Status |
+|---|---|---|---|---|
+| `configs/default.yaml` | 2 (Present/Removed) | `data/splits_v2` | `checkpoints/` | **trained** — test acc 0.76, AUROC 0.796 |
+| `configs/3class.yaml` | 3 (Present/Removed/Original) | `data/splits_3class` | `checkpoints_3class/` | **trained** — best val acc 0.7467, test metrics not yet pulled |
+| `configs/v2.yaml` | 2 | `data/splits_v2` | `checkpoints_v2/` | not used this session (duplicate of default.yaml's setup) |
+
+## Train / evaluate
+
+```powershell
+# 2-class model
 python -m src.train --config configs/default.yaml
-python -m src.evaluate --config configs/default.yaml --checkpoint checkpoints/best_model.pt --split test
+python -m src.evaluate --config configs/default.yaml --checkpoint checkpoints\best_model.pt --split test
+
+# 3-class model
+python -m src.train --config configs/3class.yaml
+python -m src.evaluate --config configs/3class.yaml --checkpoint checkpoints_3class\best_model.pt --split test
 ```
 
-All other CLIs (`src.watermark.embed`, `src.attacks.distortion`, `src.data.build_splits`) already work
-with `python -m ...` as written in the README.
+`evaluate.py` auto-detects class count from the checkpoint's config: for 2
+classes it reports the original binary metrics (accuracy/AUROC/precision/
+recall/F1/TPR@low-FPR); for 3+ classes it reports macro-averaged
+precision/recall/F1 and one-vs-rest macro AUROC instead.
 
-## Current data state (checked)
+## New: single-image inference
 
-- `data/raw/`, `data/watermarked/`, `data/removed/`, `data/splits/` — **empty** (gitignored, never populated on this machine). The DIV2K download was attempted but did not complete/persist — `data/raw/` does not exist. Not needed for the path below.
-- `data/watermarked_jpeg80/` (100 images) + `data/removed_jpeg80/` (100 images) — **self-contained, already on disk**, referenced directly by `data/splits_jpeg80_extreme/*.csv`. This is the dataset `configs/default.yaml` now uses.
-- `data/removed_mild/`, `data/removed_mild_jpeg80/` and `data/splits_mild/`, `data/splits_jpeg80/` — also present, but their `train/val/test.csv` reference `data/watermarked/...` (not `watermarked_jpeg80`), which is empty — **stale, won't load** until `data/watermarked/` is regenerated from raw images.
-- `checkpoints/` — does not exist yet; created automatically on first `python -m src.train` run.
+`src/infer.py` — feed it any image, get a Present/Removed/Original verdict
+(2-class configs only print Present/Removed) with confidence and full
+per-class probabilities. See `guide.md` for exactly what preprocessing
+happens and why this is a "best-effort guess," not a certainty check.
 
-## `configs/default.yaml` — current state
-
-```yaml
-data:
-  raw_dir: "data/raw"
-  watermarked_dir: "data/watermarked_jpeg80"   # updated — matches what splits_jpeg80_extreme actually points to
-  removed_dir: "data/removed_jpeg80"           # updated — matches what splits_jpeg80_extreme actually points to
-  edited_dir: "data/edited"
-  splits_dir: "data/splits_jpeg80_extreme"     # updated — only split with all images present locally
-  ...
-train:
-  save_dir: "checkpoints"
-  log_dir: "results/logs"
-eval:
-  save_dir: "results"
+```powershell
+python -m src.infer --config configs/3class.yaml --checkpoint checkpoints_3class\best_model.pt --image path\to\image.png
 ```
 
-Note: `data.watermarked_dir` / `data.removed_dir` are only consumed by `src/data/build_splits.py` when
-*building* new splits — `src/train.py` / `src/evaluate.py` read image paths straight out of the split
-CSVs, so they don't need to match for training to work. They're kept in sync here for consistency /
-documentation only.
+## New: layer-by-layer inspection
 
-Attack params under `attack:` (jpeg_quality=2, gaussian_std=45, blur_kernel=13, 6 passes) describe how
-`removed_jpeg80` *would* be regenerated from scratch — they don't affect training against the existing
-split, since those images are already on disk.
+`src/inspect_layers.py` — runs one image through the network and prints the
+output shape + activation stats (mean/std/min/max) at every stage (stem,
+each of the 4 ConvNeXt blocks, pooling head, classifier head), to verify the
+forward pass is behaving correctly layer by layer, not just check the final
+verdict.
 
-## Run now (no download needed)
-
-```bash
-python -m src.train --config configs/default.yaml
-python -m src.evaluate --config configs/default.yaml --checkpoint checkpoints/best_model.pt --split test
+```powershell
+python -m src.inspect_layers --config configs/3class.yaml --checkpoint checkpoints_3class\best_model.pt --image path\to\image.png
 ```
-
-This trains directly against the 140/30/30 train/val/test split already present in
-`data/splits_jpeg80_extreme/`.
-
-## Full pipeline from scratch (only if you want to regenerate data)
-
-```bash
-# 1. Download DIV2K validation images
-python scripts/download_div2k.py --max-images 800
-
-# 2. Embed watermark (class 0)
-python -m src.watermark.embed --input data/raw --output data/watermarked \
-  --alpha 0.1 --block-size 8 --dwt-level 2
-
-# 3. Verify watermark present
-python -m src.watermark.embed --verify --watermarked data/watermarked --original data/raw
-
-# 4. Apply distortion attack (class 1)
-python -m src.attacks.distortion --input data/watermarked --output data/removed \
-  --jpeg-quality 50 --gaussian-std 5 --blur-kernel 3
-
-# 5. Verify attack removes watermark
-python -m src.watermark.embed --verify --watermarked data/removed --original data/raw
-
-# 6. Build stratified splits (70/15/15)
-python -m src.data.build_splits --watermarked data/watermarked --removed data/removed --splits data/splits
-
-# 7. Train (use python -m, not python src/train.py)
-python -m src.train --config configs/default.yaml   # first repoint splits_dir back to "data/splits"
-
-# 8. Evaluate
-python -m src.evaluate --config configs/default.yaml --checkpoint checkpoints/best_model.pt --split test
-```
-
-## v2 pipeline — verification-labeled dataset (fixes the overfitting/label-leakage)
-
-Labels here come from actually running `verify()` after a randomized-strength attack, not
-from "which folder we put the file in" — see `current_status.txt` (2026-08-26 update) for why.
-`--alpha 0.02` is required to get a balanced present/removed split; the default 0.2 makes the
-watermark too robust and yields ~835/65.
-
-```bash
-# 1. Build verification-labeled dataset from data/raw (900 images already on disk)
-python -m scripts.build_verified_dataset --raw data/raw \
-  --out-present data/watermarked_v2 --out-removed data/removed_v2 \
-  --save-quality 80 --alpha 0.02
-
-# 2. Build stratified splits
-python -m src.data.build_splits --watermarked data/watermarked_v2 --removed data/removed_v2 \
-  --splits data/splits_v2
-
-# 3. Train
-python -m src.train --config configs/v2.yaml
-
-# 4. Evaluate
-python -m src.evaluate --config configs/v2.yaml --checkpoint checkpoints_v2/best_model.pt --split test
-```
-
-Last run: test accuracy 0.800, AUROC 0.888 (`results/v2/test_metrics.json`) — real signal, not the
-old 100%/1.0 ceiling.
-
-## Existing configs
-
-| Config | Attack strength | Splits used | Status |
-|---|---|---|---|
-| `configs/default.yaml` | extreme (jpeg=2, noise=45, blur=13, 6 passes) | `data/splits_jpeg80_extreme` | **ready to run**, images present |
-| `configs/mild.yaml` | mild (jpeg=80, noise=2, blur=1, 1 pass) | `data/splits_mild` | stale — references empty `data/watermarked/` |
-| `configs/mild_fixed.yaml` | mild + fixed format leak | `data/splits_jpeg80` | stale — references empty `data/watermarked/` |
-
-To make `mild.yaml` / `mild_fixed.yaml` runnable, either regenerate `data/watermarked/` (steps 1–3 in the
-full pipeline above), or repoint their `splits_dir` at a self-contained split the way `default.yaml` was
-repointed.
 
 ## Quick sanity check (no data needed)
 
-```bash
+```powershell
 python -m src.watermark.embed --help
 python -m src.attacks.distortion --help
 python -m src.data.build_splits --help
 python -m src.train --help
 python -m src.evaluate --help
+python -m src.infer --help
+python -m src.inspect_layers --help
 ```
 
-## Dataloader smoke test (verifies a config's split loads without training)
+## Still outstanding
 
-```bash
-python -c "
-from pathlib import Path
-from src.data.dataset import create_dataloaders
-train_dl, val_dl, test_dl = create_dataloaders(Path('data/splits_jpeg80_extreme'), img_size=224, batch_size=4, num_workers=0)
-x, y = next(iter(train_dl))
-print(x.shape, y.shape, y.tolist())
-print(len(train_dl.dataset), len(val_dl.dataset), len(test_dl.dataset))
-"
-```
+- Test-set metrics for `configs/3class.yaml` haven't been pulled yet — run
+  the `src.evaluate` command above with `checkpoints_3class/best_model.pt`.
+- `configs/v2.yaml`, `configs/mild.yaml`, `configs/mild_fixed.yaml`,
+  `configs/full.yaml`, `configs/v2_accum*.yaml`, `configs/v2_lowmem.yaml`,
+  `configs/v2_weighted.yaml` exist in the repo but weren't touched this
+  session — treat their `splits_dir`/data references as unverified until
+  checked against what's actually on disk.

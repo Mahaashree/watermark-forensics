@@ -111,3 +111,48 @@ Next Phases (unchanged)
 - Integrate SynthID-Bypass / ComfyUI
 - Measure if classifier detects removal when attack is subtle
 
+--- Session update (2026-10-04): journal-readiness pass ---
+
+Added related-work section (paper draft Section 1.1, citations verified
+against primary sources) and a real baseline comparison (Section 5.8: a
+2-layer CNN collapses to majority-class prediction, AUROC 0.44; non-learned
+Laplacian/JPEG-blockiness thresholds reach AUROC 0.52-0.59; both well below
+the ConvNeXt-Tiny headline).
+
+Attempting to reproduce the headline checkpoint (checkpoints_v2_accum_long)
+for multi-seed CI reporting surfaced a bigger finding: it no longer existed
+on disk, and retraining the identical config on this machine's CUDA GPU
+(RTX 3050) could not reproduce the original 0.6733/0.6615 numbers. Root
+cause: the original run was trained on MPS (per
+results/v2_accum_long/CHECKPOINT_REFERENCE.md, written before this was
+known to matter), and the watermark's deliberate weakness (alpha=0.02,
+many images near the 0.5 verify() threshold) makes the dataset-build step's
+present/removed labeling sensitive to small cross-backend floating-point
+differences -- confirmed the regeneration attack itself has no RNG
+(src/attacks/diffusion_regen.py is deterministic encode/decode), so this
+is a numerics/threshold-sensitivity issue, not a seeding bug per se.
+data/watermarked_v2 + data/removed_v2 on disk now (298/602) do not match
+the paper's reported 399/501 build.
+
+Decision (made with the user): adopt the current on-disk dataset as
+authoritative going forward rather than trying to reconstruct the original.
+Retrained 3 seeds (42, 1, 2) of configs/v2_accum_long.yaml on CUDA:
+accuracy 0.7289 +/- 0.034, AUROC 0.7632 +/- 0.012 -- real, stable across
+seeds, and higher than the old single-run figure. This is now the paper's
+headline (Section 5.3.1), with the original run kept as a flagged
+historical record (Section 5.3) rather than deleted. Sections 5.2 and 5.4
+(batch-size-confound isolation, per-attack-family breakdown) were NOT
+re-run on the current dataset -- they remain valid as analyses of the
+original MPS run only, and are flagged as such. Re-running them is listed
+in Section 8 (future work), along with fixing the cross-backend
+reproducibility gap itself (stronger alpha, or deterministic-mode numerics).
+
+Also fixed: README.md's quickstart described the discarded Phase-1 leaky
+pipeline instead of the current verification-labeled one; ARCHITECTURE.md
+and workplan.md referenced stale numbers/checkboxes; a tracked data file
+(data/splits_v2/test_task1_control.csv) had been deleted in the working
+tree and was restored from the last commit; several "CPU/MPS-only" claims
+in the paper (abstract, Section 6, Limitations) were stale now that this
+machine has a CUDA GPU -- corrected to note Gap 1 is still unresolved, but
+now for a different reason (a stalled download, not a hard compute block).
+

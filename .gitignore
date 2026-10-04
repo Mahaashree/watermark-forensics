@@ -9,6 +9,9 @@ data/watermarked_full/
 data/removed_full/
 data/watermarked_v2/
 data/removed_v2/
+data/original_v2/
+data/removed_test/
+data/watermarked_test/
 
 # Checkpoints & results
 checkpoints/

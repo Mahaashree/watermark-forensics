@@ -1,0 +1,36 @@
+2026-09-28 19:58:49,179 - INFO - Device: cuda
+2026-09-28 19:58:49,181 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'original_dir': 'data/original_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_3class', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 3, 'dropout': 0.1}, 'train': {'batch_size': 16, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'class_weights': 'auto', 'save_dir': 'checkpoints_3class', 'log_dir': 'results/logs_3class'}, 'eval': {'metrics': ['accuracy', 'auroc_macro_ovr', 'precision_macro', 'recall_macro', 'f1_macro'], 'save_dir': 'results/3class'}}
+2026-09-28 19:58:52,471 - INFO - Model: convnext_tiny, params: 27,822,435
+2026-09-28 19:58:52,526 - INFO - Class weights: [2.0100502967834473, 0.9975062608718872, 0.6666666865348816]
+2026-09-28 19:59:32,635 - INFO - Epoch 001 | Train: 1.1528/0.5058 | Val: 0.8471/0.6400
+2026-09-28 19:59:32,997 - INFO -   -> New best: 0.6400
+2026-09-28 20:00:00,168 - INFO - Epoch 002 | Train: 0.8987/0.6233 | Val: 0.6485/0.7300
+2026-09-28 20:00:00,485 - INFO -   -> New best: 0.7300
+2026-09-28 20:00:25,702 - INFO - Epoch 003 | Train: 0.8019/0.7167 | Val: 0.6559/0.7400
+2026-09-28 20:00:25,987 - INFO -   -> New best: 0.7400
+2026-09-28 20:05:17,464 - INFO - Device: cuda
+2026-09-28 20:05:17,465 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'original_dir': 'data/original_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_3class', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 42, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 3, 'dropout': 0.1}, 'train': {'batch_size': 16, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 12, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 5, 'class_weights': 'auto', 'save_dir': 'checkpoints_3class', 'log_dir': 'results/logs_3class'}, 'eval': {'metrics': ['accuracy', 'auroc_macro_ovr', 'precision_macro', 'recall_macro', 'f1_macro'], 'save_dir': 'results/3class'}}
+2026-09-28 20:05:18,425 - INFO - Model: convnext_tiny, params: 27,822,435
+2026-09-28 20:05:18,430 - INFO - Class weights: [2.0100502967834473, 0.9975062608718872, 0.6666666865348816]
+2026-09-28 20:05:30,753 - INFO - Epoch 001 | Train: 1.1880/0.4600 | Val: 0.8708/0.6333
+2026-09-28 20:05:30,878 - INFO -   -> New best: 0.6333
+2026-09-28 20:05:46,616 - INFO - Epoch 002 | Train: 0.9899/0.5333 | Val: 0.8417/0.6400
+2026-09-28 20:05:46,795 - INFO -   -> New best: 0.6400
+2026-09-28 20:06:02,955 - INFO - Epoch 003 | Train: 0.9629/0.5450 | Val: 0.8349/0.5600
+2026-09-28 20:06:17,032 - INFO - Epoch 004 | Train: 0.9141/0.5983 | Val: 0.9689/0.5933
+2026-09-28 20:06:29,071 - INFO - Epoch 005 | Train: 0.9027/0.6067 | Val: 0.7696/0.6667
+2026-09-28 20:06:29,196 - INFO -   -> New best: 0.6667
+2026-09-28 20:06:40,944 - INFO - Epoch 006 | Train: 0.7642/0.6608 | Val: 0.5166/0.8100
+2026-09-28 20:06:41,058 - INFO -   -> New best: 0.8100
+2026-09-28 20:06:52,824 - INFO - Epoch 007 | Train: 0.6019/0.8042 | Val: 0.5030/0.8267
+2026-09-28 20:06:52,934 - INFO -   -> New best: 0.8267
+2026-09-28 20:07:04,711 - INFO - Epoch 008 | Train: 0.4588/0.8425 | Val: 0.4931/0.8067
+2026-09-28 20:07:16,521 - INFO - Epoch 009 | Train: 0.3978/0.8633 | Val: 0.5351/0.8300
+2026-09-28 20:07:16,628 - INFO -   -> New best: 0.8300
+2026-09-28 20:07:28,544 - INFO - Epoch 010 | Train: 0.3285/0.8967 | Val: 0.5877/0.8367
+2026-09-28 20:07:28,671 - INFO -   -> New best: 0.8367
+2026-09-28 20:07:40,450 - INFO - Epoch 011 | Train: 0.2770/0.9000 | Val: 0.5873/0.8433
+2026-09-28 20:07:40,557 - INFO -   -> New best: 0.8433
+2026-09-28 20:07:52,445 - INFO - Epoch 012 | Train: 0.2402/0.9167 | Val: 0.5901/0.8533
+2026-09-28 20:07:52,557 - INFO -   -> New best: 0.8533
+2026-09-28 20:07:52,557 - INFO - Training complete. Best val acc: 0.8533

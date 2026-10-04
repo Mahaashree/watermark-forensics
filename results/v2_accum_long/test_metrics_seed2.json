@@ -1,18 +1,18 @@
 {
   "split": "test",
-  "accuracy": 0.76,
-  "auroc": 0.7958000000000001,
-  "precision": 0.7962962962962963,
-  "recall": 0.86,
-  "f1": 0.8269230769230769,
+  "accuracy": 0.6933333333333334,
+  "auroc": 0.7497999999999999,
+  "precision": 0.78125,
+  "recall": 0.75,
+  "f1": 0.7653061224489796,
   "confusion_matrix": [
     [
-      28,
-      22
+      29,
+      21
     ],
     [
-      14,
-      86
+      25,
+      75
     ]
   ],
   "tpr_near_1pct_fpr": {
@@ -29,6 +29,6 @@
   },
   "n_negative_present_class": 50,
   "tpr_low_fpr_note": "FPR resolution is 1/n_negative = 1/50 ~= 2.00% per ROC step. TPR@low-FPR is reported at the nearest achievable FPR >= the requested target, not interpolated between the two neighboring points, since interpolating on 50 negatives would imply a precision this sample size doesn't support.",
-  "loss": 0.5814073905348778,
+  "loss": 0.770189443230629,
   "n_samples": 150
 }

@@ -217,7 +217,9 @@ def main():
     print(f"\nResults saved to {output_path}")
 
     print("\n=== Summary ===")
-    print(f"ConvNeXt-Tiny (original):  test acc=1.0000 auroc=1.0000")
+    print("(Compare against the ConvNeXt-Tiny headline for this split set,")
+    print(" reported separately in research_paper_draft.txt / results/ — not")
+    print(" hardcoded here since it depends on which splits-dir was passed in.)")
     print(f"2-layer CNN (Option A):     test acc={results['option_a']['test']['accuracy']:.4f} auroc={results['option_a']['test']['auroc']:.4f}")
     print(f"Laplacian var (Option B):   test acc={results['option_b']['test']['laplacian_var']['accuracy']:.4f} auroc={results['option_b']['test']['laplacian_var']['auroc']:.4f}")
     print(f"JPEG blockiness (Option B): test acc={results['option_b']['test']['jpeg_blockiness']['accuracy']:.4f} auroc={results['option_b']['test']['jpeg_blockiness']['auroc']:.4f}")

@@ -1,0 +1,43 @@
+2026-10-04 10:48:11,787 - INFO - Device: cuda
+2026-10-04 10:48:11,788 - INFO - Config: {'data': {'raw_dir': 'data/raw', 'watermarked_dir': 'data/watermarked_v2', 'removed_dir': 'data/removed_v2', 'edited_dir': 'data/edited', 'splits_dir': 'data/splits_v2', 'img_size': 224, 'train_split': 0.7, 'val_split': 0.15, 'test_split': 0.15, 'seed': 2, 'num_workers': 0}, 'watermark': {'method': 'dwt_dct_svd', 'alpha': 0.02, 'block_size': 8, 'dwt_level': 2, 'watermark_seed': 42, 'verify_threshold': 0.5}, 'model': {'name': 'convnext_tiny', 'pretrained': True, 'num_classes': 2, 'dropout': 0.1}, 'train': {'batch_size': 8, 'grad_accum_steps': 2, 'batch_size_fallback': 8, 'lr': 0.0001, 'weight_decay': 0.0001, 'epochs': 36, 'device': 'auto', 'mixed_precision': True, 'grad_clip': 1.0, 'early_stopping_patience': 15, 'save_dir': 'checkpoints_v2_accum_long_seed2', 'log_dir': 'results/logs_v2_accum_long_seed2'}, 'eval': {'metrics': ['accuracy', 'auroc', 'precision', 'recall', 'f1'], 'save_dir': 'results/v2_accum_long'}}
+2026-10-04 10:48:13,933 - INFO - Model: convnext_tiny, params: 27,821,666
+2026-10-04 10:48:13,935 - INFO - Grad accumulation: 2 steps -> effective batch size 16
+2026-10-04 10:48:26,267 - INFO - Epoch 001 | Train: 0.9759/0.5800 | Val: 0.7214/0.6733
+2026-10-04 10:48:26,463 - INFO -   -> New best: 0.6733
+2026-10-04 10:48:37,888 - INFO - Epoch 002 | Train: 0.6571/0.6533 | Val: 0.6802/0.5333
+2026-10-04 10:48:49,332 - INFO - Epoch 003 | Train: 0.6513/0.6117 | Val: 0.7287/0.6733
+2026-10-04 10:49:00,658 - INFO - Epoch 004 | Train: 0.6764/0.6367 | Val: 0.6107/0.6733
+2026-10-04 10:49:12,166 - INFO - Epoch 005 | Train: 0.6333/0.6483 | Val: 0.6525/0.6267
+2026-10-04 10:49:23,382 - INFO - Epoch 006 | Train: 0.6381/0.6567 | Val: 0.6950/0.6733
+2026-10-04 10:49:34,632 - INFO - Epoch 007 | Train: 0.6239/0.6617 | Val: 0.7608/0.3867
+2026-10-04 10:49:46,302 - INFO - Epoch 008 | Train: 0.6394/0.6667 | Val: 0.6075/0.6667
+2026-10-04 10:49:57,271 - INFO - Epoch 009 | Train: 0.6135/0.6217 | Val: 0.6168/0.6733
+2026-10-04 10:50:08,585 - INFO - Epoch 010 | Train: 0.6103/0.6517 | Val: 0.5991/0.6733
+2026-10-04 10:50:19,882 - INFO - Epoch 011 | Train: 0.5796/0.6667 | Val: 0.5929/0.7133
+2026-10-04 10:50:20,095 - INFO -   -> New best: 0.7133
+2026-10-04 10:50:31,439 - INFO - Epoch 012 | Train: 0.5082/0.7367 | Val: 0.5653/0.6667
+2026-10-04 10:50:42,888 - INFO - Epoch 013 | Train: 0.4883/0.7717 | Val: 0.5854/0.7467
+2026-10-04 10:50:43,078 - INFO -   -> New best: 0.7467
+2026-10-04 10:50:54,518 - INFO - Epoch 014 | Train: 0.4173/0.7933 | Val: 0.6820/0.6933
+2026-10-04 10:51:05,962 - INFO - Epoch 015 | Train: 0.4286/0.7983 | Val: 0.7604/0.7400
+2026-10-04 10:51:13,256 - INFO - Epoch 016 | Train: 0.3407/0.8567 | Val: 0.6798/0.7400
+2026-10-04 10:51:24,220 - INFO - Epoch 017 | Train: 0.3452/0.8617 | Val: 0.6889/0.7467
+2026-10-04 10:51:36,167 - INFO - Epoch 018 | Train: 0.2698/0.8817 | Val: 0.7161/0.7733
+2026-10-04 10:51:36,431 - INFO -   -> New best: 0.7733
+2026-10-04 10:51:48,223 - INFO - Epoch 019 | Train: 0.2446/0.8967 | Val: 0.9894/0.7200
+2026-10-04 10:52:00,032 - INFO - Epoch 020 | Train: 0.1981/0.9333 | Val: 1.1427/0.7067
+2026-10-04 10:52:11,582 - INFO - Epoch 021 | Train: 0.1149/0.9500 | Val: 1.6267/0.7133
+2026-10-04 10:52:23,093 - INFO - Epoch 022 | Train: 0.1645/0.9567 | Val: 1.3092/0.6800
+2026-10-04 10:52:34,549 - INFO - Epoch 023 | Train: 0.0894/0.9633 | Val: 1.7449/0.7067
+2026-10-04 10:52:46,252 - INFO - Epoch 024 | Train: 0.1098/0.9767 | Val: 2.2968/0.7400
+2026-10-04 10:52:57,539 - INFO - Epoch 025 | Train: 0.0550/0.9883 | Val: 2.6168/0.7533
+2026-10-04 10:53:09,485 - INFO - Epoch 026 | Train: 0.0317/0.9933 | Val: 2.6748/0.7267
+2026-10-04 10:53:21,909 - INFO - Epoch 027 | Train: 0.0550/0.9900 | Val: 2.5740/0.7600
+2026-10-04 10:53:34,269 - INFO - Epoch 028 | Train: 0.0144/0.9967 | Val: 2.5902/0.7533
+2026-10-04 10:53:47,180 - INFO - Epoch 029 | Train: 0.0073/0.9967 | Val: 2.5156/0.7400
+2026-10-04 10:54:00,066 - INFO - Epoch 030 | Train: 0.0004/1.0000 | Val: 2.6201/0.7667
+2026-10-04 10:54:12,618 - INFO - Epoch 031 | Train: 0.0189/0.9983 | Val: 2.6233/0.7600
+2026-10-04 10:54:24,948 - INFO - Epoch 032 | Train: 0.0023/0.9983 | Val: 2.6420/0.7600
+2026-10-04 10:54:32,662 - INFO - Epoch 033 | Train: 0.0102/0.9983 | Val: 2.6330/0.7600
+2026-10-04 10:54:32,662 - INFO - Early stopping at epoch 33
+2026-10-04 10:54:32,662 - INFO - Training complete. Best val acc: 0.7733

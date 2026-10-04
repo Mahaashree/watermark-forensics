@@ -268,9 +268,39 @@ flowchart TD
 - **Multi-seed stability:** ~80%/0.89 AUROC may vary on 900-image dataset; recommend re-running with 2-3 seeds
 - **Phase 3 pending:** diffusion regeneration attacks and SynthID-Bypass integration not yet started
 
-### Phase 3 Planned (Not Started)
-- Implement `src/attacks/diffusion_regen.py`: img2img regeneration (e.g., Stable Diffusion, strength 0.1-0.6), randomized per image
-- Integrate SynthID-Bypass / ComfyUI as real-world attack alongside local diffusion
-- Rebuild dataset mixing distortion + diffusion-regen + SynthID-Bypass attacks
-- Retrain and evaluate **per attack type**, not just pooled results
+### Phase 3 (Diversified Attack Pipeline) — Done
+
+Dataset expanded to mix distortion + SANA-VAE diffusion regeneration +
+CtrlRegen diffusion regeneration attacks (900-image corpus). See
+`research_paper_draft.txt` Section 5 for full methodology, ablations
+(batch-size/step-count confound isolation), and per-attack-family
+breakdown.
+
+- **Headline (2-class, present vs removed, diversified attack mix)**:
+  3-seed mean accuracy 0.7289 ± 0.034, AUROC 0.7632 ± 0.012 (Section
+  5.3.1, retrained 2026-10-04 on CUDA after the original checkpoint was
+  lost from disk). **Note:** this supersedes the originally-reported
+  single-run 0.6733/0.6615 (Section 5.3), which was trained on MPS and
+  could not be reproduced on CUDA — see Section 5.3.1 for why (a
+  hardware-dependent reproducibility gap in the dataset-build step, not a
+  regression). Checkpoints: `checkpoints_v2_accum_long{,_seed1,_seed2}`.
+- **Reference baseline (2-class, single distortion-only attack, easier
+  task)**: accuracy 0.800, AUROC 0.888 (Section 4.2 / "Phase 2" below).
+  Reported alongside the headline as a difficulty-scaling reference, not
+  a competing or superseded number — the two measure different attack
+  diversity, not the same task at different points in time.
+- **3-class extension (adds an "Original"/pristine class)**:
+  `checkpoints_3class` (`configs/3class.yaml`) — pooled macro accuracy
+  0.8167 / AUROC 0.9136, but this is inflated by the Original class being
+  trivially separable (95.3% correct) and making up half the test set.
+  The honest present-vs-removed-only comparison (excluding Original,
+  renormalized scores): accuracy 0.7467, AUROC 0.7929 — see paper draft
+  Section 5.7. Report the disaggregated number, not the pooled one, when
+  citing this model.
+
+### Gap 1 (Real-World Tool Evaluation) — Unresolved
+- Every independently-downloaded real-world removal tool evaluated so
+  far (DiffPure, UnMarker, remove-ai-watermarks) was disqualified before
+  producing a result — see `phase2_tools_evaluation.md` and paper draft
+  Section 6. No real-tool detection-rate evidence exists yet.
 - Document with honesty standard: real numbers, explicit caveats, no unexplained 1.0s

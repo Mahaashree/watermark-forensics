@@ -76,17 +76,20 @@ def _assert_no_group_leakage(train_df, val_df, test_df) -> None:
 def build_splits(
     wm_dir: Path, removed_dir: Path, splits_dir: Path,
     train_ratio: float = 0.70, val_ratio: float = 0.15, test_ratio: float = 0.15,
-    seed: int = 42
+    seed: int = 42, original_dir: Path | None = None, removed_extra_dirs: list[Path] | None = None
 ) -> None:
     assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
 
     wm_files = sorted(wm_dir.glob("*.png"))
     rm_files = sorted(removed_dir.glob("*.png"))
-    all_files = wm_files + rm_files
+    for extra_dir in (removed_extra_dirs or []):
+        rm_files += sorted(extra_dir.glob("*.png"))
+    orig_files = sorted(original_dir.glob("*.png")) if original_dir else []
+    all_files = wm_files + rm_files + orig_files
 
     df = pd.DataFrame({
         "path": [str(p) for p in all_files],
-        "label": [0] * len(wm_files) + [1] * len(rm_files),
+        "label": [0] * len(wm_files) + [1] * len(rm_files) + [2] * len(orig_files),
         "source_id": [_source_id(p) for p in all_files],
     })
 
@@ -102,9 +105,12 @@ def build_splits(
     val_df[["path", "label"]].to_csv(splits_dir / "val.csv", index=False)
     test_df[["path", "label"]].to_csv(splits_dir / "test.csv", index=False)
 
-    print(f"Train: {len(train_df)} (0:{sum(train_df.label==0)}, 1:{sum(train_df.label==1)})")
-    print(f"Val:   {len(val_df)} (0:{sum(val_df.label==0)}, 1:{sum(val_df.label==1)})")
-    print(f"Test:  {len(test_df)} (0:{sum(test_df.label==0)}, 1:{sum(test_df.label==1)})")
+    def _counts(d):
+        return " ".join(f"{lbl}:{sum(d.label==lbl)}" for lbl in sorted(df.label.unique()))
+
+    print(f"Train: {len(train_df)} ({_counts(train_df)})")
+    print(f"Val:   {len(val_df)} ({_counts(val_df)})")
+    print(f"Test:  {len(test_df)} ({_counts(test_df)})")
     print("No source-ID leakage across train/val/test (verified).")
 
 
@@ -112,6 +118,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--watermarked", type=Path, required=True)
     parser.add_argument("--removed", type=Path, required=True)
+    parser.add_argument("--removed-extra", type=Path, nargs="+", default=None,
+                         help="Additional removed-class directories (label 1), e.g. other attack strengths, for extra training diversity")
+    parser.add_argument("--original", type=Path, default=None, help="Optional third class: never-watermarked originals (label 2)")
     parser.add_argument("--splits", type=Path, required=True)
     parser.add_argument("--train", type=float, default=0.70)
     parser.add_argument("--val", type=float, default=0.15)
@@ -119,7 +128,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    build_splits(args.watermarked, args.removed, args.splits, args.train, args.val, args.test, args.seed)
+    build_splits(args.watermarked, args.removed, args.splits, args.train, args.val, args.test, args.seed, args.original, args.removed_extra)
 
 
 if __name__ == "__main__":
